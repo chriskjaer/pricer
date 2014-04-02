@@ -2,27 +2,55 @@
   "name": "pricer",
   "version": "0.0.1",
   "private": true,
+  "main": "server.js",
   "scripts": {
     "install": "napa"
   },
   "napa": {
     "angular": "angular/bower-angular",
-    "angular-route": "angular/bower-angular-route"
+    "angular-route": "angular/bower-angular-route",
+    "bLazy": "dinbror/blazy"
   },
   "dependencies": {
     "express": "3.5.0",
     "jade": "*",
     "mongoose": "~3.8.8",
     "mongodb": "~1.3.23",
-    "napa": "~0.4.0",
-    "browserify": "~3.32.1",
-    "jadeify": "~2.1.1",
-    "gulp-concat": "~2.1.7",
-    "gulp": "~3.5.5",
-    "gulp-browserify": "~0.5.0",
-    "gulp-sass": "~0.7.1",
-    "markdown": "~0.5.0",
     "request": "^2.34.0",
-    "cheerio": "^0.13.1"
+    "cheerio": "^0.13.1",
+    "lodash-node": "^2.4.1",
+    "q": "^1.0.1"
+  },
+  "devDependencies": {
+    "watchify": "^0.6.3",
+    "napa": "~0.4.0",
+    "jadeify": "~2.1.1",
+    "gulp": "~3.5.5",
+    "markdown": "~0.5.0",
+    "vinyl-source-stream": "^0.1.1",
+    "browserify-shim": "^3.3.2"
+  },
+  "browserify": {
+    "transform": [
+      "jadeify",
+      "browserify-shim"
+    ],
+    "extensions": [
+      ".jade"
+    ],
+    "debug": true
+  },
+  "browser": {
+    "angular": "angular/angular.js",
+    "angular-route": "angular-route/angular-route.js",
+    "bLazy": "bLazy/blazy.js"
+  },
+  "browserify-shim": {
+    "angular-route/angular-route.js": {
+      "exports": "angular-route",
+      "depends": [
+        "angular"
+      ]
+    }
   }
 }

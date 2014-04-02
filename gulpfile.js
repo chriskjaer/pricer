@@ -1,61 +1,27 @@
 'use strict';
 
 var gulp = require('gulp'),
-    sass = require('gulp-sass'),
-    browserify = require('gulp-browserify'),
-    concat = require('gulp-concat');
+    source = require('vinyl-source-stream'),
+    watchify = require('watchify');
 
 //
 // TASKS
 // -------------------------------------------------------------
-
-// --- Task for compiling our sass ---
-gulp.task('css', function () {
-  return gulp.src('./app/assets/styles/*.scss')
-    .pipe(
-      sass({
-      errLogToConsole: true,
-      sourceComments: 'map'
-    })
-    )
-    .pipe(gulp.dest('./app/assets/styles/'));
-});
-
-
-gulp.task('browserify', function () {
-  return gulp.src(['./client/main.js'])
-    .pipe(browserify({
-      insertGlobals : true,
-      debug : true,
-      transform: ['jadeify'],
-      extensions: ['.jade'],
-      shim: {
-        angular: {
-          path: './node_modules/angular/angular.js',
-          exports: 'angular'
-        },
-        'angular-route': {
-          path: './node_modules/angular-route/angular-route.js',
-          exports: 'ngRoute',
-          depends: {
-            angular: 'angular'
-          }
-        }
-      }
-    }))
-    .pipe(concat('bundle.js'))
-    .pipe(gulp.dest('./public/javascripts/'));
-});
-
-
-// --- Let gulp keep an eye on our files and compile stuff if it changes ---
 gulp.task('watch', function () {
-  gulp.watch('./app/assets/styles/**/*.scss', ['css']);
-  gulp.watch('./client/**/*.*', ['browserify']);
+  var bundler = watchify('./client/ckApp.js');
+
+  function rebundle() {
+    return bundler.bundle()
+      .pipe(source('bundle.js'))
+      .pipe(gulp.dest('./public/javascripts/'));
+  }
+  
+  bundler.on('update', rebundle);
+
+  return rebundle();
 });
 
 
-// --- Default gulp task, run with gulp. - Starts our project and opens a new browser window.
-gulp.task('default', ['css'], function () {
+gulp.task('default', function () {
   gulp.start('watch');
 });

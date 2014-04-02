@@ -1,6 +1,6 @@
 'use strict';
 
-var template = require('./view-main.jade');
+var template = require('./products.template.jade');
     
 module.exports = function ($routeProvider) {
   $routeProvider
