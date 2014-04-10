@@ -19,7 +19,9 @@
     "request": "^2.34.0",
     "cheerio": "^0.13.1",
     "lodash-node": "^2.4.1",
-    "q": "^1.0.1"
+    "q": "^1.0.1",
+    "request-promise": "0.0.3",
+    "hyperquest": "^0.3.0"
   },
   "devDependencies": {
     "watchify": "^0.6.3",

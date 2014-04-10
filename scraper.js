@@ -1,9 +1,24 @@
 'use strict';
 
 var Q = require('q'),
-    cheerio = require('cheerio'),
     _ = require('lodash-node'),
+    mongoose = require('mongoose'),
+    cheerio = require('cheerio'),
     request = Q.denodeify(require('request'));
+
+var productSchema = mongoose.Schema({
+  brand: String,
+  price: Number,
+  img: String,
+  link: String,
+  name: String,
+  category: String,
+  subCategory: String
+});
+
+var BRAND = 'Moss Copenhagen';
+
+var Product = mongoose.model('Product', productSchema);
 
 function getTopCategoryUrls(html) {
   var deferred = Q.defer(),
@@ -68,6 +83,7 @@ function getProductsFromUrls(urls) {
 
 
         var product = {
+          brand: BRAND,
           price: parseInt($this.find('.price').text().replace('DKK', ''), 10),
           img: $this.find('.image img').attr('src').trim(),
           name: a.attr('title').trim(),
@@ -77,6 +93,7 @@ function getProductsFromUrls(urls) {
         };
 
         products.push(product);
+        Product.create(product);
       });
     });
 
@@ -88,10 +105,9 @@ function getProductsFromUrls(urls) {
 
 request('http://www.mosscopenhagen.com/shop.html')
   .then(getTopCategoryUrls)
-  // .then(getSubCategoryUrls)
+  .then(getSubCategoryUrls)
   .then(getProductsFromUrls)
-  .then(function (result) {
-    console.log(result);
+  .catch(console.error)
+  .done(function (result) {
     console.log('\nFinished scraping: \nAdded %d products to the database\n', result.length);
-  }
-);
+  });
