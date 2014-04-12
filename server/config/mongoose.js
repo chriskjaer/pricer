@@ -1,7 +1,7 @@
 'use strict';
 
 var mongoose = require('mongoose'),
-    productModel = require('../scraper/moss-copenhagen.scraper');
+    productModel = require('../models/Product');
 
 module.exports = function (config) {
   mongoose.connect(config.db);
@@ -11,6 +11,5 @@ module.exports = function (config) {
     console.log('pricer db opened');
   });
 
-  productModel.scrapeMossCopenhagen();
-
+  productModel.createInitialProducts();
 };

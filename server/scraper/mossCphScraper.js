@@ -2,23 +2,8 @@
 
 var Q = require('q'),
     _ = require('lodash-node'),
-    mongoose = require('mongoose'),
-    cheerio = require('cheerio'),
-    request = Q.denodeify(require('request'));
-
-var productSchema = mongoose.Schema({
-  brand: String,
-  price: Number,
-  img: String,
-  link: String,
-  name: String,
-  category: String,
-  subCategory: String
-});
-
-var BRAND = 'Moss Copenhagen';
-
-var Product = mongoose.model('Product', productSchema);
+    request = require('./request'),
+    cheerio = require('cheerio');
 
 function getTopCategoryUrls(html) {
   var deferred = Q.defer(),
@@ -29,22 +14,16 @@ function getTopCategoryUrls(html) {
     categoryUrls.push(this.attr('href'));
   });
 
-  console.log('Done. Got %d Category Links', categoryUrls.length);
   deferred.resolve(categoryUrls);
 
   return deferred.promise;
 }
 
 function getSubCategoryUrls(urls) {
-  var promises = [],
-      subCategoryUrls = [],
+  var subCategoryUrls = [],
       deferred = Q.defer();
 
-  _.each(urls, function (url) {
-    promises.push(request(url));
-  });
-
-  Q.all(promises).then(function (result) {
+  request.multipleUrls(urls).then(function (result) {
     _.each(result, function (html) {
       var $ = cheerio.load(html);
       $('.categories .suboption').each(function () {
@@ -53,7 +32,6 @@ function getSubCategoryUrls(urls) {
       });
     });
 
-    console.log('Done. Got %d Sub Category Links', subCategoryUrls.length);
     deferred.resolve(subCategoryUrls);
   });
 
@@ -61,27 +39,18 @@ function getSubCategoryUrls(urls) {
 }
 
 function getProductsFromUrls(urls) {
-  var promises = [],
-      products = [],
+  var products = [],
       deferred = Q.defer();
 
-  console.log('Starting to scrape the products...');
-
-  _.each(urls, function (url) {
-    promises.push(request(url));
-  });
-
-  Q.all(promises).then(function (result) {
-    console.log('We got the html! Time to scrape the products...');
+  request.multipleUrls(urls).then(function (result) {
 
     _.each(result, function (html) {
       var $ = cheerio.load(html);
+      var BRAND = 'Moss Copenhagen';
 
       $('#products .product').each(function () {
-        var $this = $(this),
-            a = $this.find('a[title]').eq(0);
-
-
+        var $this = $(this);
+        var a = $this.find('a[title]').eq(0);
         var product = {
           brand: BRAND,
           price: parseInt($this.find('.price').text().replace('DKK', ''), 10),
@@ -93,7 +62,6 @@ function getProductsFromUrls(urls) {
         };
 
         products.push(product);
-        Product.create(product);
       });
     });
 
@@ -103,11 +71,9 @@ function getProductsFromUrls(urls) {
   return deferred.promise;
 }
 
-request('http://www.mosscopenhagen.com/shop.html')
-  .then(getTopCategoryUrls)
-  .then(getSubCategoryUrls)
-  .then(getProductsFromUrls)
-  .catch(console.error)
-  .done(function (result) {
-    console.log('\nFinished scraping: \nAdded %d products to the database\n', result.length);
-  });
+module.exports = function () {
+  return request.singleUrl('http://www.mosscopenhagen.com/shop.html')
+    .then(getTopCategoryUrls)
+    .then(getSubCategoryUrls)
+    .then(getProductsFromUrls);
+};

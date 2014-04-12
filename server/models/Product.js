@@ -1,8 +1,8 @@
 'use strict';
 
 var mongoose = require('mongoose'),
-    request = require('request'),
-    cheerio = require('cheerio');
+    _ = require('lodash-node'),
+    mossCphScraper = require('../scraper/mossCphScraper');
 
 
 var productSchema = mongoose.Schema({
@@ -18,37 +18,20 @@ var productSchema = mongoose.Schema({
 var Product = mongoose.model('Product', productSchema);
 
 function createInitialProducts() {
-  Product.find({}).exec(function (err, collection) {
-    if (collection.length === 0) {
-      var URL = 'http://www.ellos.dk';
+  var promise = Product.find({}).exec();
 
-      request(URL + '/adidas?rcnt=10', function (error, response, html) {
-        if (!error && response.statusCode === 200) {
-          var $ = cheerio.load(html);
-
-          $('.productContent').each(function () {
-            var product = $(this);
-
-            var brand = product.find('.brand').text();
-            var price = product.find('.price').text().replace(',-', '');
-            var img = product.find('.imageContainer').attr('data-original').replace('//', 'http://');
-            var a = product.find('a[title]').eq(0);
-            var title = a.attr('title');
-            var link = a.attr('href');
-
-            Product.create({
-              brand: brand,
-              price: parseInt(price, 10),
-              img: img,
-              title: title,
-              link: URL + link
-            });
-
-          });
-        }
+  promise.then(function (result) {
+      if (result.length === 0) {
+        console.log('Database empty. Starting scraper');
+        return mossCphScraper();
+      }
+    })
+    .then(function (products) {
+      _.each(products, function (product) {
+        Product.create(product);
       });
-    }
-  });
+      console.log('Done! Added %d products to the database', products.length);
+    });
 }
 
 exports.createInitialProducts = createInitialProducts;
