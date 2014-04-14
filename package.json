@@ -8,9 +8,7 @@
   },
   "napa": {
     "angular": "angular/bower-angular",
-    "angular-route": "angular/bower-angular-route",
-    "ui-router": "angular-ui/ui-router",
-    "bLazy": "dinbror/blazy"
+    "ui-router": "angular-ui/ui-router"
   },
   "dependencies": {
     "express": "~3.5.0",
@@ -45,8 +43,7 @@
   },
   "browser": {
     "angular": "angular/angular.js",
-    "angular-route": "angular-route/angular-route.js",
-    "bLazy": "bLazy/blazy.js"
+    "angular-route": "angular-route/angular-route.js"
   },
   "browserify-shim": {
     "angular-route/angular-route.js": {
