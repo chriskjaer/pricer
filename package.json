@@ -9,6 +9,7 @@
   "napa": {
     "angular": "angular/bower-angular",
     "angular-route": "angular/bower-angular-route",
+    "ui-router": "angular-ui/ui-router",
     "bLazy": "dinbror/blazy"
   },
   "dependencies": {
@@ -19,7 +20,9 @@
     "cheerio": "^0.13.1",
     "lodash-node": "^2.4.1",
     "q": "^1.0.1",
-    "q-io": "^1.11.0"
+    "q-io": "^1.11.0",
+    "autoprefixer-stylus": "0.0.4",
+    "normalize.css": "^3.0.1"
   },
   "devDependencies": {
     "watchify": "^0.6.3",
@@ -36,7 +39,7 @@
       "browserify-shim"
     ],
     "extensions": [
-      ".jade"
+      "jade"
     ],
     "debug": true
   },

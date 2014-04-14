@@ -8,7 +8,7 @@ var gulp = require('gulp'),
 // TASKS
 // -------------------------------------------------------------
 gulp.task('watch', function () {
-  var bundler = watchify('./client/ckApp.js');
+  var bundler = watchify('./client/pApp.js');
 
   function rebundle() {
     return bundler.bundle()

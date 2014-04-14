@@ -1,0 +1,10 @@
+div(data-flex)
+  div(data-flex-item, 
+      ng-repeat="product in products | filter: filterSettings | limitTo: 10")
+
+    .tile
+      .tile__image
+        img(ng-src="{{product.img}}")
+      h2.delta.flush {{product.name}}
+      p.flush.small {{product.brand}}
+      p.flush.price {{product.price | currency: 'kr. '}}

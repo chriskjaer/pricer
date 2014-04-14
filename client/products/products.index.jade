@@ -1,0 +1,10 @@
+ul.facets.align-center
+  a(ui-sref="index.products") Show Products
+  li(ng-repeat="category in filters")
+    button(ng-click="updateCategory(category._id)") {{category._id}}
+    ul.facets.facets--sub
+      li( ng-repeat="subCategory in category.subCategories", 
+          ng-if="category._id === filterSettings.category")
+        button(ng-click="updateSubCategory(subCategory)") {{subCategory}}
+
+div(ui-view)

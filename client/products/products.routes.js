@@ -1,13 +1,20 @@
 'use strict';
 
-var template = require('./products.template.jade');
-    
-module.exports = function ($routeProvider) {
-  $routeProvider
-    .when('/', {
-      template: template
+var index = require('./products.index.jade');
+var list = require('./products.list.jade');
+var productsCtrl = require('./products.controller');
+
+module.exports = function ($stateProvider, $urlRouterProvider) {
+  $urlRouterProvider.otherwise('/');
+
+  $stateProvider
+    .state('index', {
+      url: '/',
+      template: index,
+      controller: productsCtrl
     })
-    .otherwise({
-      redirectTo: '/'
+    .state('index.products', {
+      url: 'produkter/',
+      template: list
     });
 };

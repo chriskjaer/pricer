@@ -1,6 +1,0 @@
-div.flex-grid(ng-controller="ProductsController as app")
-  .tile(ng-repeat="product in app.products")
-    img(ng-src="{{product.img}}")
-    h2.delta.tight {{product.name}}
-    p.small {{product.brand}}
-    p.price {{'kr. ' + product.price}}

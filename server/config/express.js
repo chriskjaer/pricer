@@ -1,11 +1,17 @@
 'use strict';
 
 var express = require('express'),
-    stylus = require('stylus');
+    stylus = require('stylus'),
+    autoprefixer = require('autoprefixer-stylus');
 
 module.exports = function (app, config) {
   function compile(src, path) {
-    return stylus(src).set('filename', path);
+    return stylus(src)
+            .use(autoprefixer())
+            .set('filename', path)
+            .set('include css', true)
+            .set('paths', [config.rootPath + 'node_modules/',
+              config.rootPath + 'public/stylesheets']);
   }
 
   app.configure(function () {
