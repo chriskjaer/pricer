@@ -1,56 +1,22 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-require('angular');
-var products = require('./products');
-
-angular.module('pApp', [require('ui-router/release/angular-ui-router'), products.name]);
-
-},{"./products":2,"angular":8,"ui-router/release/angular-ui-router":10}],2:[function(require,module,exports){
-'use strict';
-
-var productsService = require('./products.service');
-var routes = require('./products.routes');
-
-module.exports = angular
-  .module('pApp.products', [])
-  .config(routes)
-  .factory('productsService', productsService);
-},{"./products.routes":6,"./products.service":7}],3:[function(require,module,exports){
 'use strict';
 
 
-function productsCtrl($http, productsService, $scope) {
+function filterCtrl(filterService) {
+  var filter = this;
 
-  productsService.getProducts($http).then(function (response) {
-    $scope.products = response.data;
-  });
-
-  productsService.getFilter($http).then(function (response) {
-    $scope.filters = response.data;
-  });
-
-  $scope.filterSettings = {
-    category: '',
-    subCategory: ''
-  };
-
-  $scope.updateCategory = function (val) {
-    $scope.filterSettings = {
-      category: val,
-      subCategory: ''
-    };
-  };
-
-  $scope.updateSubCategory = function (val) {
-    $scope.filterSettings.subCategory = val;
-  };
+  filterService.getFilter()
+    .then(function (response) {
+      filter.categories = response.data;
+    });
 }
 
-module.exports = productsCtrl;
+module.exports = filterCtrl;
 
-productsCtrl.$inject = ['$http', 'productsService', '$scope'];
+filterCtrl.$inject = ['filterService'];
 
 
-},{}],4:[function(require,module,exports){
+},{}],2:[function(require,module,exports){
 var jade = require("jade/runtime");
 
 module.exports = function template(locals) {
@@ -58,53 +24,131 @@ var buf = [];
 var jade_mixins = {};
 var jade_interp;
 
-buf.push("<ul class=\"facets align-center\"><a ui-sref=\"index.products\">Show Products</a><li ng-repeat=\"category in filters\"><button ng-click=\"updateCategory(category._id)\">{{category._id}}</button><ul class=\"facets facets--sub\"><li ng-repeat=\"subCategory in category.subCategories\" ng-if=\"category._id === filterSettings.category\"><button ng-click=\"updateSubCategory(subCategory)\">{{subCategory}}</button></li></ul></li></ul><div ui-view=\"ui-view\"></div>");;return buf.join("");
+buf.push("<ul class=\"facets sidebar left\"><li><a ui-sref=\"index.products(/)\">Alle</a></li><li ng-repeat=\"category in filter.categories\"><a ui-sref=\"index.products({category: category._id})\">{{category._id}}</a><ul class=\"facets facets--sub\"><li ng-repeat=\"subCategory in category.subCategories\" ng-if=\"category._id === filterSettings.category\"><button>{{subCategory}}</button></li></ul></li></ul><ui-view></ui-view>");;return buf.join("");
 };
-},{"jade/runtime":9}],5:[function(require,module,exports){
-var jade = require("jade/runtime");
-
-module.exports = function template(locals) {
-var buf = [];
-var jade_mixins = {};
-var jade_interp;
-
-buf.push("<div data-flex=\"data-flex\">{{products}}<div data-flex-item=\"data-flex-item\" ng-repeat=\"product in products | filter: filterSettings | limitTo: 10\"><div class=\"tile\"><div class=\"tile__image\"><img ng-src=\"{{product.img}}\"/></div><h2 class=\"delta flush\">{{product.name}}</h2><p class=\"flush small\">{{product.brand}}</p><p class=\"flush price\">{{product.price | currency: 'kr. '}}</p></div></div></div>");;return buf.join("");
-};
-},{"jade/runtime":9}],6:[function(require,module,exports){
+},{"jade/runtime":13}],3:[function(require,module,exports){
 'use strict';
 
-var index = require('./products.index.jade');
-var list = require('./products.list.jade');
-var productsCtrl = require('./products.controller');
+var index = require('./filter.index.jade');
 
 module.exports = function ($stateProvider, $urlRouterProvider) {
-  $urlRouterProvider.otherwise('/');
+  $urlRouterProvider.otherwise('');
 
   $stateProvider
     .state('index', {
-      url: '/',
+      url: '',
       template: index,
-      controller: productsCtrl
-    })
-    .state('index.products', {
-      url: 'produkter/',
-      template: list
+      controller: 'filterCtrl as filter'
     });
 };
-},{"./products.controller":3,"./products.index.jade":4,"./products.list.jade":5}],7:[function(require,module,exports){
+},{"./filter.index.jade":2}],4:[function(require,module,exports){
 'use strict';
 
-module.exports = function () {
+function filter($http) {
   return {
-    getProducts: function ($http) {
-      return $http.get('/api/products');
-    },
-    getFilter: function ($http) {
+    getFilter: function () {
       return $http.get('/api/filter');
     }
   };
-};
+}
+
+filter.$inject = ['$http'];
+
+module.exports = filter;
+},{}],5:[function(require,module,exports){
+'use strict';
+
+var uiRouter = require('ui-router/release/angular-ui-router'),
+    filterService = require('./filter.service'),
+    filterCtrl = require('./filter.controller'),
+    routes = require('./filter.routes'),
+    products = require('./products');
+
+module.exports = angular
+  .module('pApp.filter', [
+    uiRouter,
+    products.name
+  ])
+  .run(function ($rootScope, $state, $stateParams) {
+    $rootScope.$state = $state;
+    $rootScope.$stateParams = $stateParams;
+  })
+  .config(routes)
+  .factory('filterService', filterService)
+  .controller('filterCtrl', filterCtrl);
+},{"./filter.controller":1,"./filter.routes":3,"./filter.service":4,"./products":6,"ui-router/release/angular-ui-router":14}],6:[function(require,module,exports){
+'use strict';
+
+var productsService = require('./products.service'),
+    routes = require('./products.routes'),
+    uiRouter = require('ui-router/release/angular-ui-router'),
+    productsCtrl = require('./products.controller');
+
+module.exports = angular
+  .module('pApp.filter.products', [uiRouter])
+  .config(routes)
+  .factory('productsService', productsService)
+  .controller('productsCtrl', productsCtrl);
+},{"./products.controller":7,"./products.routes":9,"./products.service":10,"ui-router/release/angular-ui-router":14}],7:[function(require,module,exports){
+'use strict';
+
+
+function productsCtrl(productsService, $stateParams) {
+  var products = this;
+
+  productsService.getProducts().then(function (response) {
+    products.data = response.data;
+  });
+}
+
+productsCtrl.$inject = ['productsService'];
+
+module.exports = productsCtrl;
+
 },{}],8:[function(require,module,exports){
+var jade = require("jade/runtime");
+
+module.exports = function template(locals) {
+var buf = [];
+var jade_mixins = {};
+var jade_interp;
+
+buf.push("$state = {{$state.current.name}}<br/>$stateParams = {{$stateParams}}<br/>$state full url = {{ $state.$current.url.source }}<hr/><div data-flex=\"data-flex\"><div data-flex-item=\"data-flex-item\" ng-repeat=\"product in products.data | filter: $stateParams | limitTo: 10\"><div class=\"tile\"><div class=\"tile__image\"><img ng-src=\"{{product.img}}\"/></div><h2 class=\"delta flush\">{{product.name}}</h2><p class=\"flush small\">{{product.brand}}</p><p class=\"flush price\">{{product.price | currency: 'kr. '}}</p></div></div></div>");;return buf.join("");
+};
+},{"jade/runtime":13}],9:[function(require,module,exports){
+'use strict';
+
+var index = require('./products.index.jade');
+
+module.exports = function ($stateProvider) {
+  $stateProvider
+    .state('index.products', {
+      url: '/produkter/:category',
+      template: index,
+      controller: 'productsCtrl as products'
+    });
+};
+},{"./products.index.jade":8}],10:[function(require,module,exports){
+'use strict';
+
+function filterService($http) {
+  return {
+    getProducts: function () {
+      return $http.get('/api/products');
+    }
+  };
+}
+
+filterService.$inject = ['$http'];
+
+module.exports = filterService;
+},{}],11:[function(require,module,exports){
+require('angular');
+var pfilter = require('./filter').name;
+
+angular.module('pApp', [pfilter]);
+
+},{"./filter":5,"angular":12}],12:[function(require,module,exports){
 /**
  * @license AngularJS v1.2.17-build.111+sha.19d7a12
  * (c) 2010-2014 Google, Inc. http://angularjs.org
@@ -21728,7 +21772,7 @@ var styleDirective = valueFn({
 })(window, document);
 
 !angular.$$csp() && angular.element(document).find('head').prepend('<style type="text/css">@charset "UTF-8";[ng\\:cloak],[ng-cloak],[data-ng-cloak],[x-ng-cloak],.ng-cloak,.x-ng-cloak,.ng-hide{display:none !important;}ng\\:form{display:block;}.ng-animate-block-transitions{transition:0s all!important;-webkit-transition:0s all!important;}</style>');
-},{}],9:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 (function (global){
 !function(e){if("object"==typeof exports)module.exports=e();else if("function"==typeof define&&define.amd)define(e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.jade=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
 'use strict';
@@ -21941,7 +21985,7 @@ exports.rethrow = function rethrow(err, filename, lineno, str){
 (1)
 });
 }).call(this,typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],10:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 /**
  * State-based routing for AngularJS
  * @version v0.2.10
@@ -25165,4 +25209,4 @@ angular.module('ui.router.compat')
   .provider('$route', $RouteProvider)
   .directive('ngView', $ViewDirective);
 })(window, window.angular);
-},{}]},{},[1])
+},{}]},{},[11])

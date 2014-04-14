@@ -1,4 +1,4 @@
 require('angular');
-var products = require('./products');
+var pfilter = require('./filter').name;
 
-angular.module('pApp', [require('ui-router/release/angular-ui-router'), products.name]);
+angular.module('pApp', [pfilter]);

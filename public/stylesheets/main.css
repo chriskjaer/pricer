@@ -518,20 +518,19 @@ hr {
 .inline {
   display: inline-block;
 }
+.left {
+  float: left;
+}
+.right {
+  float: right;
+}
 .facets {
   list-style: none;
   padding-left: 0;
   margin-bottom: 0;
 }
-.facets li {
-  display: inline-block;
-}
 .facets--sub {
-  position: absolute;
-  bottom: 0;
-  -webkit-transform: translateX(100%);
-  -ms-transform: translateX(100%);
-  transform: translateX(100%);
+  padding-left: 1.5rem;
 }
 [data-flex] {
   display: -webkit-box;
@@ -553,7 +552,7 @@ hr {
   flex: 0 1 250px;
 }
 .sidebar {
-  width: 300px;
+  height: 100%;
 }
 .tile {
   background: #fff;

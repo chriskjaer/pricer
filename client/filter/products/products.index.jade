@@ -1,7 +1,12 @@
+$state = {{$state.current.name}}
+br
+$stateParams = {{$stateParams}}
+br
+$state full url = {{ $state.$current.url.source }}
+hr
 div(data-flex)
-  {{products}}
   div(data-flex-item, 
-      ng-repeat="product in products | filter: filterSettings | limitTo: 10")
+      ng-repeat="product in products.data | filter: $stateParams | limitTo: 10")
 
     .tile
       .tile__image
