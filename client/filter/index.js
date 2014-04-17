@@ -1,6 +1,6 @@
 'use strict';
 
-var uiRouter = require('ui-router/release/angular-ui-router'),
+var uiRouter = require('angular-ui-router'),
     filterService = require('./filter.service'),
     filterCtrl = require('./filter.controller'),
     routes = require('./filter.routes'),

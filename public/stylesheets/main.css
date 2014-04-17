@@ -576,3 +576,11 @@ hr {
 .price {
   font-weight: bold;
 }
+.dev {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background-color: rgba(255,255,255,0.95);
+  padding: 1.5rem/2;
+}

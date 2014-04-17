@@ -1,9 +1,5 @@
-$state = {{$state.current.name}}
-br
-$stateParams = {{$stateParams}}
-br
-$state full url = {{ $state.$current.url.source }}
-hr
+input(type='range')
+
 div(data-flex)
   div(data-flex-item, 
       ng-repeat="product in products.data | filter: $stateParams | limitTo: 10")
