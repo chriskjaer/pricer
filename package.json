@@ -4,7 +4,7 @@
   "private": true,
   "main": "server.js",
   "scripts": {
-    "install": "napa"
+    "install": "bower install"
   },
   "dependencies": {
     "express": "~3.5.0",
@@ -29,15 +29,10 @@
     "browserify-shim": "^3.3.2",
     "debowerify": "^0.7.0"
   },
-  "napa": {
-    "angular": "angular/bower-angular",
-    "angular-touch": "angular/bower-angular-touch",
-    "ng-slider": "Venturocket/angular-slider"
-  },
   "browserify": {
     "transform": [
       "jadeify",
-      "browserify-shim"
+      "debowerify"
     ],
     "extensions": [
       "jade"
@@ -45,8 +40,6 @@
     "debug": true
   },
   "browser": {
-    "angular": "angular/angular",
     "ngSlider": "ng-slider/build/angular-slider"
-  },
-  "browserify-shim": {}
+  }
 }

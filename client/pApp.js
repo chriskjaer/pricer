@@ -1,5 +1,5 @@
 require('angular');
 
-var pfilter = require('./filter').name;
-
-angular.module('pApp', [pfilter]);
+angular.module('pApp', [
+    require('./filter').name
+  ]);
