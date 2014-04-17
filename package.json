@@ -39,8 +39,5 @@
       "jade"
     ],
     "debug": true
-  },
-  "browser": {
-    "ngSlider": "ng-slider/build/angular-slider"
   }
 }
