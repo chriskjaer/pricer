@@ -13,7 +13,7 @@ gulp.task('watch', function () {
   function rebundle() {
     return bundler.bundle()
       .pipe(source('bundle.js'))
-      .pipe(gulp.dest('./public/javascripts/'));
+      .pipe(gulp.dest('./static/javascripts/'));
   }
   
   bundler.on('update', rebundle);

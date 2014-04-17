@@ -11,7 +11,7 @@ module.exports = function (app, config) {
             .set('filename', path)
             .set('include css', true)
             .set('paths', [config.rootPath + 'node_modules/',
-              config.rootPath + 'public/stylesheets']);
+              config.rootPath + 'static/stylesheets']);
   }
 
   app.configure(function () {
@@ -23,10 +23,10 @@ module.exports = function (app, config) {
     app.use(express.session({secret: 'mean unicorns ftw'}));
     app.use(stylus.middleware(
       {
-        src: config.rootPath + '/public',
+        src: config.rootPath + '/static',
         compile: compile
       }
     ));
-    app.use(express.static(config.rootPath + '/public'));
+    app.use(express.static(config.rootPath + '/static'));
   });
 };
