@@ -1,14 +1,16 @@
-ul.facets.sidebar.left
-  li
-    a(ui-sref='index.products()') Alle
-  li(ng-repeat="category in filter.categories")
-    a(ui-sref='index.products({category: category._id})') {{category._id}}
-    ul.facets.facets--sub
-      li( ng-repeat="subCategory in category.subCategories", 
-          ng-if="category._id === $stateParams.category")
-        a(ui-sref='index.products.subCategories({subCategory: subCategory})') {{subCategory}}
+.sidebar
+  ul.facets.left
+    li
+      a(ui-sref='index.products') Alle
 
-ui-view
+    li(ng-repeat="category in filter.categories")
+      a(ui-sref='index.products.category({category: category._id})') {{category._id}}
+      ul.facets.facets--sub
+        li( ng-repeat="subCategory in category.subCategories", 
+            ng-if="category._id === $stateParams.category")
+          a(ui-sref='index.products.category.subCategory({subCategory: subCategory})') {{subCategory}}
+
+ui-view.content
 
 
 div.dev.align-center

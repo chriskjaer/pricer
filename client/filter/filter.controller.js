@@ -1,8 +1,10 @@
 'use strict';
 
 
-function filterCtrl(filterService) {
+function filterCtrl(filterService, $stateParams) {
   var filter = this;
+
+  console.log($stateParams);
 
   filterService.getFilter()
     .then(function (response) {

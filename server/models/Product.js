@@ -1,6 +1,7 @@
 'use strict';
 
 var mongoose = require('mongoose'),
+    timestamps = require('mongoose-timestamp'),
     _ = require('lodash-node'),
     mossCphScraper = require('../scraper/mossCphScraper');
 
@@ -14,6 +15,8 @@ var productSchema = mongoose.Schema({
   category: String,
   subCategory: String
 });
+
+productSchema.plugin(timestamps);
 
 var Product = mongoose.model('Product', productSchema);
 

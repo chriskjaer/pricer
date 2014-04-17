@@ -17,7 +17,8 @@
     "q-io": "^1.11.0",
     "autoprefixer-stylus": "0.0.4",
     "normalize.css": "^3.0.1",
-    "angular-ui-router": "^0.2.10"
+    "angular-ui-router": "^0.2.10",
+    "mongoose-timestamp": "^0.2.1"
   },
   "devDependencies": {
     "watchify": "^0.6.3",

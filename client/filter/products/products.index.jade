@@ -1,8 +1,17 @@
-input(type='range')
+  
+input(
+  type="range"
+  min="{{products.slider.min}}"
+  max="{{products.slider.max}}"
+  value="products.maxPrice"
+  ng-model="products.maxPrice")
+
+p {{products.maxPrice}}
 
 div(data-flex)
-  div(data-flex-item, 
-      ng-repeat="product in products.data | filter: $stateParams | limitTo: 10")
+  div(
+    data-flex-item
+    ng-repeat="product in products.data | filter: $stateParams | filter: products.filterByMaxPrice | limitTo: 10")
 
     .tile
       .tile__image
