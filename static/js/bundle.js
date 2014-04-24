@@ -1,592 +1,6 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 /**
- * @license AngularJS v1.3.0-build.2605+sha.d5a2069
- * (c) 2010-2014 Google, Inc. http://angularjs.org
- * License: MIT
- */
-(function(window, angular, undefined) {'use strict';
-
-/**
- * @ngdoc module
- * @name ngTouch
- * @description
- *
- * # ngTouch
- *
- * The `ngTouch` module provides touch events and other helpers for touch-enabled devices.
- * The implementation is based on jQuery Mobile touch event handling
- * ([jquerymobile.com](http://jquerymobile.com/)).
- *
- *
- * See {@link ngTouch.$swipe `$swipe`} for usage.
- *
- * <div doc-module-components="ngTouch"></div>
- *
- */
-
-// define ngTouch module
-/* global -ngTouch */
-var ngTouch = angular.module('ngTouch', []);
-
-/* global ngTouch: false */
-
-    /**
-     * @ngdoc service
-     * @name $swipe
-     *
-     * @description
-     * The `$swipe` service is a service that abstracts the messier details of hold-and-drag swipe
-     * behavior, to make implementing swipe-related directives more convenient.
-     *
-     * Requires the {@link ngTouch `ngTouch`} module to be installed.
-     *
-     * `$swipe` is used by the `ngSwipeLeft` and `ngSwipeRight` directives in `ngTouch`, and by
-     * `ngCarousel` in a separate component.
-     *
-     * # Usage
-     * The `$swipe` service is an object with a single method: `bind`. `bind` takes an element
-     * which is to be watched for swipes, and an object with four handler functions. See the
-     * documentation for `bind` below.
-     */
-
-ngTouch.factory('$swipe', [function() {
-  // The total distance in any direction before we make the call on swipe vs. scroll.
-  var MOVE_BUFFER_RADIUS = 10;
-
-  function getCoordinates(event) {
-    var touches = event.touches && event.touches.length ? event.touches : [event];
-    var e = (event.changedTouches && event.changedTouches[0]) ||
-        (event.originalEvent && event.originalEvent.changedTouches &&
-            event.originalEvent.changedTouches[0]) ||
-        touches[0].originalEvent || touches[0];
-
-    return {
-      x: e.clientX,
-      y: e.clientY
-    };
-  }
-
-  return {
-    /**
-     * @ngdoc method
-     * @name $swipe#bind
-     *
-     * @description
-     * The main method of `$swipe`. It takes an element to be watched for swipe motions, and an
-     * object containing event handlers.
-     *
-     * The four events are `start`, `move`, `end`, and `cancel`. `start`, `move`, and `end`
-     * receive as a parameter a coordinates object of the form `{ x: 150, y: 310 }`.
-     *
-     * `start` is called on either `mousedown` or `touchstart`. After this event, `$swipe` is
-     * watching for `touchmove` or `mousemove` events. These events are ignored until the total
-     * distance moved in either dimension exceeds a small threshold.
-     *
-     * Once this threshold is exceeded, either the horizontal or vertical delta is greater.
-     * - If the horizontal distance is greater, this is a swipe and `move` and `end` events follow.
-     * - If the vertical distance is greater, this is a scroll, and we let the browser take over.
-     *   A `cancel` event is sent.
-     *
-     * `move` is called on `mousemove` and `touchmove` after the above logic has determined that
-     * a swipe is in progress.
-     *
-     * `end` is called when a swipe is successfully completed with a `touchend` or `mouseup`.
-     *
-     * `cancel` is called either on a `touchcancel` from the browser, or when we begin scrolling
-     * as described above.
-     *
-     */
-    bind: function(element, eventHandlers) {
-      // Absolute total movement, used to control swipe vs. scroll.
-      var totalX, totalY;
-      // Coordinates of the start position.
-      var startCoords;
-      // Last event's position.
-      var lastPos;
-      // Whether a swipe is active.
-      var active = false;
-
-      element.on('touchstart mousedown', function(event) {
-        startCoords = getCoordinates(event);
-        active = true;
-        totalX = 0;
-        totalY = 0;
-        lastPos = startCoords;
-        eventHandlers['start'] && eventHandlers['start'](startCoords, event);
-      });
-
-      element.on('touchcancel', function(event) {
-        active = false;
-        eventHandlers['cancel'] && eventHandlers['cancel'](event);
-      });
-
-      element.on('touchmove mousemove', function(event) {
-        if (!active) return;
-
-        // Android will send a touchcancel if it thinks we're starting to scroll.
-        // So when the total distance (+ or - or both) exceeds 10px in either direction,
-        // we either:
-        // - On totalX > totalY, we send preventDefault() and treat this as a swipe.
-        // - On totalY > totalX, we let the browser handle it as a scroll.
-
-        if (!startCoords) return;
-        var coords = getCoordinates(event);
-
-        totalX += Math.abs(coords.x - lastPos.x);
-        totalY += Math.abs(coords.y - lastPos.y);
-
-        lastPos = coords;
-
-        if (totalX < MOVE_BUFFER_RADIUS && totalY < MOVE_BUFFER_RADIUS) {
-          return;
-        }
-
-        // One of totalX or totalY has exceeded the buffer, so decide on swipe vs. scroll.
-        if (totalY > totalX) {
-          // Allow native scrolling to take over.
-          active = false;
-          eventHandlers['cancel'] && eventHandlers['cancel'](event);
-          return;
-        } else {
-          // Prevent the browser from scrolling.
-          event.preventDefault();
-          eventHandlers['move'] && eventHandlers['move'](coords, event);
-        }
-      });
-
-      element.on('touchend mouseup', function(event) {
-        if (!active) return;
-        active = false;
-        eventHandlers['end'] && eventHandlers['end'](getCoordinates(event), event);
-      });
-    }
-  };
-}]);
-
-/* global ngTouch: false */
-
-/**
- * @ngdoc directive
- * @name ngClick
- *
- * @description
- * A more powerful replacement for the default ngClick designed to be used on touchscreen
- * devices. Most mobile browsers wait about 300ms after a tap-and-release before sending
- * the click event. This version handles them immediately, and then prevents the
- * following click event from propagating.
- *
- * Requires the {@link ngTouch `ngTouch`} module to be installed.
- *
- * This directive can fall back to using an ordinary click event, and so works on desktop
- * browsers as well as mobile.
- *
- * This directive also sets the CSS class `ng-click-active` while the element is being held
- * down (by a mouse click or touch) so you can restyle the depressed element if you wish.
- *
- * @element ANY
- * @param {expression} ngClick {@link guide/expression Expression} to evaluate
- * upon tap. (Event object is available as `$event`)
- *
- * @example
-    <example module="ngClickExample" deps="angular-touch.js">
-      <file name="index.html">
-        <button ng-click="count = count + 1" ng-init="count=0">
-          Increment
-        </button>
-        count: {{ count }}
-      </file>
-      <file name="script.js">
-        angular.module('ngClickExample', ['ngTouch']);
-      </file>
-    </example>
- */
-
-ngTouch.config(['$provide', function($provide) {
-  $provide.decorator('ngClickDirective', ['$delegate', function($delegate) {
-    // drop the default ngClick directive
-    $delegate.shift();
-    return $delegate;
-  }]);
-}]);
-
-ngTouch.directive('ngClick', ['$parse', '$timeout', '$rootElement',
-    function($parse, $timeout, $rootElement) {
-  var TAP_DURATION = 750; // Shorter than 750ms is a tap, longer is a taphold or drag.
-  var MOVE_TOLERANCE = 12; // 12px seems to work in most mobile browsers.
-  var PREVENT_DURATION = 2500; // 2.5 seconds maximum from preventGhostClick call to click
-  var CLICKBUSTER_THRESHOLD = 25; // 25 pixels in any dimension is the limit for busting clicks.
-
-  var ACTIVE_CLASS_NAME = 'ng-click-active';
-  var lastPreventedTime;
-  var touchCoordinates;
-  var lastLabelClickCoordinates;
-
-
-  // TAP EVENTS AND GHOST CLICKS
-  //
-  // Why tap events?
-  // Mobile browsers detect a tap, then wait a moment (usually ~300ms) to see if you're
-  // double-tapping, and then fire a click event.
-  //
-  // This delay sucks and makes mobile apps feel unresponsive.
-  // So we detect touchstart, touchmove, touchcancel and touchend ourselves and determine when
-  // the user has tapped on something.
-  //
-  // What happens when the browser then generates a click event?
-  // The browser, of course, also detects the tap and fires a click after a delay. This results in
-  // tapping/clicking twice. So we do "clickbusting" to prevent it.
-  //
-  // How does it work?
-  // We attach global touchstart and click handlers, that run during the capture (early) phase.
-  // So the sequence for a tap is:
-  // - global touchstart: Sets an "allowable region" at the point touched.
-  // - element's touchstart: Starts a touch
-  // (- touchmove or touchcancel ends the touch, no click follows)
-  // - element's touchend: Determines if the tap is valid (didn't move too far away, didn't hold
-  //   too long) and fires the user's tap handler. The touchend also calls preventGhostClick().
-  // - preventGhostClick() removes the allowable region the global touchstart created.
-  // - The browser generates a click event.
-  // - The global click handler catches the click, and checks whether it was in an allowable region.
-  //     - If preventGhostClick was called, the region will have been removed, the click is busted.
-  //     - If the region is still there, the click proceeds normally. Therefore clicks on links and
-  //       other elements without ngTap on them work normally.
-  //
-  // This is an ugly, terrible hack!
-  // Yeah, tell me about it. The alternatives are using the slow click events, or making our users
-  // deal with the ghost clicks, so I consider this the least of evils. Fortunately Angular
-  // encapsulates this ugly logic away from the user.
-  //
-  // Why not just put click handlers on the element?
-  // We do that too, just to be sure. The problem is that the tap event might have caused the DOM
-  // to change, so that the click fires in the same position but something else is there now. So
-  // the handlers are global and care only about coordinates and not elements.
-
-  // Checks if the coordinates are close enough to be within the region.
-  function hit(x1, y1, x2, y2) {
-    return Math.abs(x1 - x2) < CLICKBUSTER_THRESHOLD && Math.abs(y1 - y2) < CLICKBUSTER_THRESHOLD;
-  }
-
-  // Checks a list of allowable regions against a click location.
-  // Returns true if the click should be allowed.
-  // Splices out the allowable region from the list after it has been used.
-  function checkAllowableRegions(touchCoordinates, x, y) {
-    for (var i = 0; i < touchCoordinates.length; i += 2) {
-      if (hit(touchCoordinates[i], touchCoordinates[i+1], x, y)) {
-        touchCoordinates.splice(i, i + 2);
-        return true; // allowable region
-      }
-    }
-    return false; // No allowable region; bust it.
-  }
-
-  // Global click handler that prevents the click if it's in a bustable zone and preventGhostClick
-  // was called recently.
-  function onClick(event) {
-    if (Date.now() - lastPreventedTime > PREVENT_DURATION) {
-      return; // Too old.
-    }
-
-    var touches = event.touches && event.touches.length ? event.touches : [event];
-    var x = touches[0].clientX;
-    var y = touches[0].clientY;
-    // Work around desktop Webkit quirk where clicking a label will fire two clicks (on the label
-    // and on the input element). Depending on the exact browser, this second click we don't want
-    // to bust has either (0,0), negative coordinates, or coordinates equal to triggering label
-    // click event
-    if (x < 1 && y < 1) {
-      return; // offscreen
-    }
-    if (lastLabelClickCoordinates &&
-        lastLabelClickCoordinates[0] === x && lastLabelClickCoordinates[1] === y) {
-      return; // input click triggered by label click
-    }
-    // reset label click coordinates on first subsequent click
-    if (lastLabelClickCoordinates) {
-      lastLabelClickCoordinates = null;
-    }
-    // remember label click coordinates to prevent click busting of trigger click event on input
-    if (event.target.tagName.toLowerCase() === 'label') {
-      lastLabelClickCoordinates = [x, y];
-    }
-
-    // Look for an allowable region containing this click.
-    // If we find one, that means it was created by touchstart and not removed by
-    // preventGhostClick, so we don't bust it.
-    if (checkAllowableRegions(touchCoordinates, x, y)) {
-      return;
-    }
-
-    // If we didn't find an allowable region, bust the click.
-    event.stopPropagation();
-    event.preventDefault();
-
-    // Blur focused form elements
-    event.target && event.target.blur();
-  }
-
-
-  // Global touchstart handler that creates an allowable region for a click event.
-  // This allowable region can be removed by preventGhostClick if we want to bust it.
-  function onTouchStart(event) {
-    var touches = event.touches && event.touches.length ? event.touches : [event];
-    var x = touches[0].clientX;
-    var y = touches[0].clientY;
-    touchCoordinates.push(x, y);
-
-    $timeout(function() {
-      // Remove the allowable region.
-      for (var i = 0; i < touchCoordinates.length; i += 2) {
-        if (touchCoordinates[i] == x && touchCoordinates[i+1] == y) {
-          touchCoordinates.splice(i, i + 2);
-          return;
-        }
-      }
-    }, PREVENT_DURATION, false);
-  }
-
-  // On the first call, attaches some event handlers. Then whenever it gets called, it creates a
-  // zone around the touchstart where clicks will get busted.
-  function preventGhostClick(x, y) {
-    if (!touchCoordinates) {
-      $rootElement[0].addEventListener('click', onClick, true);
-      $rootElement[0].addEventListener('touchstart', onTouchStart, true);
-      touchCoordinates = [];
-    }
-
-    lastPreventedTime = Date.now();
-
-    checkAllowableRegions(touchCoordinates, x, y);
-  }
-
-  // Actual linking function.
-  return function(scope, element, attr) {
-    var clickHandler = $parse(attr.ngClick),
-        tapping = false,
-        tapElement,  // Used to blur the element after a tap.
-        startTime,   // Used to check if the tap was held too long.
-        touchStartX,
-        touchStartY;
-
-    function resetState() {
-      tapping = false;
-      element.removeClass(ACTIVE_CLASS_NAME);
-    }
-
-    element.on('touchstart', function(event) {
-      tapping = true;
-      tapElement = event.target ? event.target : event.srcElement; // IE uses srcElement.
-      // Hack for Safari, which can target text nodes instead of containers.
-      if(tapElement.nodeType == 3) {
-        tapElement = tapElement.parentNode;
-      }
-
-      element.addClass(ACTIVE_CLASS_NAME);
-
-      startTime = Date.now();
-
-      var touches = event.touches && event.touches.length ? event.touches : [event];
-      var e = touches[0].originalEvent || touches[0];
-      touchStartX = e.clientX;
-      touchStartY = e.clientY;
-    });
-
-    element.on('touchmove', function(event) {
-      resetState();
-    });
-
-    element.on('touchcancel', function(event) {
-      resetState();
-    });
-
-    element.on('touchend', function(event) {
-      var diff = Date.now() - startTime;
-
-      var touches = (event.changedTouches && event.changedTouches.length) ? event.changedTouches :
-          ((event.touches && event.touches.length) ? event.touches : [event]);
-      var e = touches[0].originalEvent || touches[0];
-      var x = e.clientX;
-      var y = e.clientY;
-      var dist = Math.sqrt( Math.pow(x - touchStartX, 2) + Math.pow(y - touchStartY, 2) );
-
-      if (tapping && diff < TAP_DURATION && dist < MOVE_TOLERANCE) {
-        // Call preventGhostClick so the clickbuster will catch the corresponding click.
-        preventGhostClick(x, y);
-
-        // Blur the focused element (the button, probably) before firing the callback.
-        // This doesn't work perfectly on Android Chrome, but seems to work elsewhere.
-        // I couldn't get anything to work reliably on Android Chrome.
-        if (tapElement) {
-          tapElement.blur();
-        }
-
-        if (!angular.isDefined(attr.disabled) || attr.disabled === false) {
-          element.triggerHandler('click', [event]);
-        }
-      }
-
-      resetState();
-    });
-
-    // Hack for iOS Safari's benefit. It goes searching for onclick handlers and is liable to click
-    // something else nearby.
-    element.onclick = function(event) { };
-
-    // Actual click handler.
-    // There are three different kinds of clicks, only two of which reach this point.
-    // - On desktop browsers without touch events, their clicks will always come here.
-    // - On mobile browsers, the simulated "fast" click will call this.
-    // - But the browser's follow-up slow click will be "busted" before it reaches this handler.
-    // Therefore it's safe to use this directive on both mobile and desktop.
-    element.on('click', function(event, touchend) {
-      scope.$apply(function() {
-        clickHandler(scope, {$event: (touchend || event)});
-      });
-    });
-
-    element.on('mousedown', function(event) {
-      element.addClass(ACTIVE_CLASS_NAME);
-    });
-
-    element.on('mousemove mouseup', function(event) {
-      element.removeClass(ACTIVE_CLASS_NAME);
-    });
-
-  };
-}]);
-
-/* global ngTouch: false */
-
-/**
- * @ngdoc directive
- * @name ngSwipeLeft
- *
- * @description
- * Specify custom behavior when an element is swiped to the left on a touchscreen device.
- * A leftward swipe is a quick, right-to-left slide of the finger.
- * Though ngSwipeLeft is designed for touch-based devices, it will work with a mouse click and drag
- * too.
- *
- * Requires the {@link ngTouch `ngTouch`} module to be installed.
- *
- * @element ANY
- * @param {expression} ngSwipeLeft {@link guide/expression Expression} to evaluate
- * upon left swipe. (Event object is available as `$event`)
- *
- * @example
-    <example module="ngSwipeLeftExample" deps="angular-touch.js">
-      <file name="index.html">
-        <div ng-show="!showActions" ng-swipe-left="showActions = true">
-          Some list content, like an email in the inbox
-        </div>
-        <div ng-show="showActions" ng-swipe-right="showActions = false">
-          <button ng-click="reply()">Reply</button>
-          <button ng-click="delete()">Delete</button>
-        </div>
-      </file>
-      <file name="script.js">
-        angular.module('ngSwipeLeftExample', ['ngTouch']);
-      </file>
-    </example>
- */
-
-/**
- * @ngdoc directive
- * @name ngSwipeRight
- *
- * @description
- * Specify custom behavior when an element is swiped to the right on a touchscreen device.
- * A rightward swipe is a quick, left-to-right slide of the finger.
- * Though ngSwipeRight is designed for touch-based devices, it will work with a mouse click and drag
- * too.
- *
- * Requires the {@link ngTouch `ngTouch`} module to be installed.
- *
- * @element ANY
- * @param {expression} ngSwipeRight {@link guide/expression Expression} to evaluate
- * upon right swipe. (Event object is available as `$event`)
- *
- * @example
-    <example module="ngSwipeRightExample" deps="angular-touch.js">
-      <file name="index.html">
-        <div ng-show="!showActions" ng-swipe-left="showActions = true">
-          Some list content, like an email in the inbox
-        </div>
-        <div ng-show="showActions" ng-swipe-right="showActions = false">
-          <button ng-click="reply()">Reply</button>
-          <button ng-click="delete()">Delete</button>
-        </div>
-      </file>
-      <file name="script.js">
-        angular.module('ngSwipeRightExample', ['ngTouch']);
-      </file>
-    </example>
- */
-
-function makeSwipeDirective(directiveName, direction, eventName) {
-  ngTouch.directive(directiveName, ['$parse', '$swipe', function($parse, $swipe) {
-    // The maximum vertical delta for a swipe should be less than 75px.
-    var MAX_VERTICAL_DISTANCE = 75;
-    // Vertical distance should not be more than a fraction of the horizontal distance.
-    var MAX_VERTICAL_RATIO = 0.3;
-    // At least a 30px lateral motion is necessary for a swipe.
-    var MIN_HORIZONTAL_DISTANCE = 30;
-
-    return function(scope, element, attr) {
-      var swipeHandler = $parse(attr[directiveName]);
-
-      var startCoords, valid;
-
-      function validSwipe(coords) {
-        // Check that it's within the coordinates.
-        // Absolute vertical distance must be within tolerances.
-        // Horizontal distance, we take the current X - the starting X.
-        // This is negative for leftward swipes and positive for rightward swipes.
-        // After multiplying by the direction (-1 for left, +1 for right), legal swipes
-        // (ie. same direction as the directive wants) will have a positive delta and
-        // illegal ones a negative delta.
-        // Therefore this delta must be positive, and larger than the minimum.
-        if (!startCoords) return false;
-        var deltaY = Math.abs(coords.y - startCoords.y);
-        var deltaX = (coords.x - startCoords.x) * direction;
-        return valid && // Short circuit for already-invalidated swipes.
-            deltaY < MAX_VERTICAL_DISTANCE &&
-            deltaX > 0 &&
-            deltaX > MIN_HORIZONTAL_DISTANCE &&
-            deltaY / deltaX < MAX_VERTICAL_RATIO;
-      }
-
-      $swipe.bind(element, {
-        'start': function(coords, event) {
-          startCoords = coords;
-          valid = true;
-        },
-        'cancel': function(event) {
-          valid = false;
-        },
-        'end': function(coords, event) {
-          if (validSwipe(coords)) {
-            scope.$apply(function() {
-              element.triggerHandler(eventName);
-              swipeHandler(scope, {$event: event});
-            });
-          }
-        }
-      });
-    };
-  }]);
-}
-
-// Left is negative X-coordinate, right is positive.
-makeSwipeDirective('ngSwipeLeft', -1, 'swipeleft');
-makeSwipeDirective('ngSwipeRight', 1, 'swiperight');
-
-
-
-})(window, window.angular);
-
-},{}],2:[function(require,module,exports){
-/**
- * @license AngularJS v1.3.0-build.2605+sha.d5a2069
+ * @license AngularJS v1.3.0-build.2632+sha.737ef25
  * (c) 2010-2014 Google, Inc. http://angularjs.org
  * License: MIT
  */
@@ -655,7 +69,7 @@ function minErr(module) {
       return match;
     });
 
-    message = message + '\nhttp://errors.angularjs.org/1.3.0-build.2605+sha.d5a2069/' +
+    message = message + '\nhttp://errors.angularjs.org/1.3.0-build.2632+sha.737ef25/' +
       (module ? module + '/' : '') + code;
     for (i = 2; i < arguments.length; i++) {
       message = message + (i == 2 ? '?' : '&') + 'p' + (i-2) + '=' +
@@ -676,7 +90,6 @@ function minErr(module) {
     -push,
     -toString,
     -ngMinErr,
-    -_angular,
     -angularModule,
     -nodeName_,
     -uid,
@@ -827,8 +240,6 @@ var /** holds major version number for IE or NaN for real browsers */
     toString          = Object.prototype.toString,
     ngMinErr          = minErr('ng'),
 
-
-    _angular          = window.angular,
     /** @name angular */
     angular           = window.angular || (window.angular = {}),
     angularModule,
@@ -2607,7 +2018,7 @@ function setupModuleLoader(window) {
  * - `codeName` – `{string}` – Code name of the release, such as "jiggling-armfat".
  */
 var version = {
-  full: '1.3.0-build.2605+sha.d5a2069',    // all of these placeholder strings will be replaced by grunt's
+  full: '1.3.0-build.2632+sha.737ef25',    // all of these placeholder strings will be replaced by grunt's
   major: 1,    // package task
   minor: 3,
   dot: 0,
@@ -7609,9 +7020,11 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
                 // register any observers
                 if (!interpolateFn) return;
 
-                // TODO(i): this should likely be attr.$set(name, iterpolateFn(scope) so that we reset the
-                // actual attr value
+                // initialize attr object so that it's ready in case we need the value for isolate
+                // scope initialization, otherwise the value would not be available from isolate
+                // directive's linking fn during linking phase
                 attr[name] = interpolateFn(scope);
+
                 ($$observers[name] || ($$observers[name] = [])).$$inter = true;
                 (attr.$$observers && attr.$$observers[name].$$scope || scope).
                   $watch(interpolateFn, function interpolateFnWatchAction(newValue, oldValue) {
@@ -9286,40 +8699,44 @@ function $InterpolateProvider() {
      * @returns {function(context)} an interpolation function which is used to compute the
      *    interpolated string. The function has these parameters:
      *
-     *    * `context`: an object against which any expressions embedded in the strings are evaluated
-     *      against.
-     *
+     * - `context`: evaluation context for all expressions embedded in the interpolated text
      */
     function $interpolate(text, mustHaveExpression, trustedContext) {
       var startIndex,
           endIndex,
           index = 0,
-          parts = [],
-          length = text.length,
+          separators = [],
+          expressions = [],
+          parseFns = [],
+          textLength = text.length,
           hasInterpolation = false,
-          fn,
+          hasText = false,
           exp,
-          concat = [];
+          concat = [],
+          lastValuesCache = { values: {}, results: {}};
 
-      while(index < length) {
+      while(index < textLength) {
         if ( ((startIndex = text.indexOf(startSymbol, index)) != -1) &&
              ((endIndex = text.indexOf(endSymbol, startIndex + startSymbolLength)) != -1) ) {
-          (index != startIndex) && parts.push(text.substring(index, startIndex));
-          parts.push(fn = $parse(exp = text.substring(startIndex + startSymbolLength, endIndex)));
-          fn.exp = exp;
+          if (index !== startIndex) hasText = true;
+          separators.push(text.substring(index, startIndex));
+          exp = text.substring(startIndex + startSymbolLength, endIndex);
+          expressions.push(exp);
+          parseFns.push($parse(exp));
           index = endIndex + endSymbolLength;
           hasInterpolation = true;
         } else {
-          // we did not find anything, so we have to add the remainder to the parts array
-          (index != length) && parts.push(text.substring(index));
-          index = length;
+          // we did not find an interpolation, so we have to add the remainder to the separators array
+          if (index !== textLength) {
+            hasText = true;
+            separators.push(text.substring(index));
+          }
+          break;
         }
       }
 
-      if (!(length = parts.length)) {
-        // we added, nothing, must have been an empty string.
-        parts.push('');
-        length = 1;
+      if (separators.length === expressions.length) {
+        separators.push('');
       }
 
       // Concatenating expressions makes it hard to reason about whether some combination of
@@ -9328,44 +8745,92 @@ function $InterpolateProvider() {
       // that's used is assigned or constructed by some JS code somewhere that is more testable or
       // make it obvious that you bound the value to some user controlled value.  This helps reduce
       // the load when auditing for XSS issues.
-      if (trustedContext && parts.length > 1) {
+      if (trustedContext && hasInterpolation && (hasText || expressions.length > 1)) {
           throw $interpolateMinErr('noconcat',
               "Error while interpolating: {0}\nStrict Contextual Escaping disallows " +
               "interpolations that concatenate multiple expressions when a trusted value is " +
               "required.  See http://docs.angularjs.org/api/ng.$sce", text);
       }
 
-      if (!mustHaveExpression  || hasInterpolation) {
-        concat.length = length;
-        fn = function(context) {
-          try {
-            for(var i = 0, ii = length, part; i<ii; i++) {
-              if (typeof (part = parts[i]) == 'function') {
-                part = part(context);
-                if (trustedContext) {
-                  part = $sce.getTrusted(trustedContext, part);
-                } else {
-                  part = $sce.valueOf(part);
-                }
-                if (part === null || isUndefined(part)) {
-                  part = '';
-                } else if (typeof part != 'string') {
-                  part = toJson(part);
-                }
-              }
-              concat[i] = part;
-            }
-            return concat.join('');
+      if (!mustHaveExpression || hasInterpolation) {
+        concat.length = separators.length + expressions.length;
+
+        var compute = function(values) {
+          for(var i = 0, ii = expressions.length; i < ii; i++) {
+            concat[2*i] = separators[i];
+            concat[(2*i)+1] = values[i];
           }
-          catch(err) {
-            var newErr = $interpolateMinErr('interr', "Can't interpolate: {0}\n{1}", text,
-                err.toString());
-            $exceptionHandler(newErr);
-          }
+          concat[2*ii] = separators[ii];
+          return concat.join('');
         };
-        fn.exp = text;
-        fn.parts = parts;
-        return fn;
+
+        var stringify = function (value) {
+          if (trustedContext) {
+            value = $sce.getTrusted(trustedContext, value);
+          } else {
+            value = $sce.valueOf(value);
+          }
+
+          if (value === null || isUndefined(value)) {
+            value = '';
+          } else if (typeof value != 'string') {
+            value = toJson(value);
+          }
+
+          return value;
+        };
+
+        return extend(function interpolationFn(context) {
+            var scopeId = context.$id || 'notAScope';
+            var lastValues = lastValuesCache.values[scopeId];
+            var lastResult = lastValuesCache.results[scopeId];
+            var i = 0;
+            var ii = expressions.length;
+            var values = new Array(ii);
+            var val;
+            var inputsChanged = lastResult === undefined ? true: false;
+
+
+            // if we haven't seen this context before, initialize the cache and try to setup
+            // a cleanup routine that purges the cache when the scope goes away.
+            if (!lastValues) {
+              lastValues = [];
+              inputsChanged = true;
+              if (context.$on) {
+                context.$on('$destroy', function() {
+                  lastValuesCache.values[scopeId] = null;
+                  lastValuesCache.results[scopeId] = null;
+                });
+              }
+            }
+
+
+            try {
+              for (; i < ii; i++) {
+                val = stringify(parseFns[i](context));
+                if (val !== lastValues[i]) {
+                  inputsChanged = true;
+                }
+                values[i] = val;
+              }
+
+              if (inputsChanged) {
+                lastValuesCache.values[scopeId] = values;
+                lastValuesCache.results[scopeId] = lastResult = compute(values);
+              }
+            } catch(err) {
+              var newErr = $interpolateMinErr('interr', "Can't interpolate: {0}\n{1}", text,
+                  err.toString());
+              $exceptionHandler(newErr);
+            }
+
+            return lastResult;
+          }, {
+          // all of these properties are undocumented for now
+          exp: text, //just for compatibility with regular watchers created via $watch
+          separators: separators,
+          expressions: expressions
+        });
       }
     }
 
@@ -9511,7 +8976,7 @@ function $IntervalProvider() {
       *
       *             // listen on DOM destroy (removal) event, and cancel the next UI update
       *             // to prevent updating time ofter the DOM element was removed.
-      *             element.bind('$destroy', function() {
+      *             element.on('$destroy', function() {
       *               $interval.cancel(stopTime);
       *             });
       *           }
@@ -9929,6 +9394,16 @@ function LocationHashbangInHtml5Url(appBase, hashPrefix) {
       return appBaseNoFile;
     }
   };
+
+  this.$$compose = function() {
+    var search = toKeyValue(this.$$search),
+        hash = this.$$hash ? '#' + encodeUriSegment(this.$$hash) : '';
+
+    this.$$url = encodePath(this.$$path) + (search ? '?' + search : '') + hash;
+    // include hashPrefix in $$absUrl when $$url is empty so IE8 & 9 do not reload page because of removal of '#'
+    this.$$absUrl = appBase + hashPrefix + this.$$url;
+  };
+
 }
 
 
@@ -10301,6 +9776,39 @@ function $LocationProvider(){
         // SVGAnimatedString.animVal should be identical to SVGAnimatedString.baseVal, unless during
         // an animation.
         absHref = urlResolve(absHref.animVal).href;
+      }
+
+      // Make relative links work in HTML5 mode for legacy browsers (or at least IE8 & 9)
+      // The href should be a regular url e.g. /link/somewhere or link/somewhere or ../somewhere or
+      // somewhere#anchor or http://example.com/somewhere
+      if (LocationMode === LocationHashbangInHtml5Url) {
+        // get the actual href attribute - see
+        // http://msdn.microsoft.com/en-us/library/ie/dd347148(v=vs.85).aspx
+        var href = elm.attr('href') || elm.attr('xlink:href');
+
+        if (href.indexOf('://') < 0) {         // Ignore absolute URLs
+          var prefix = '#' + hashPrefix;
+          if (href[0] == '/') {
+            // absolute path - replace old path
+            absHref = appBase + prefix + href;
+          } else if (href[0] == '#') {
+            // local anchor
+            absHref = appBase + prefix + ($location.path() || '/') + href;
+          } else {
+            // relative path - join with current path
+            var stack = $location.path().split("/"),
+              parts = href.split("/");
+            for (var i=0; i<parts.length; i++) {
+              if (parts[i] == ".")
+                continue;
+              else if (parts[i] == "..")
+                stack.pop();
+              else if (parts[i].length)
+                stack.push(parts[i]);
+            }
+            absHref = appBase + prefix + stack.join('/');
+          }
+        }
       }
 
       var rewrittenUrl = $location.$$rewrite(absHref);
@@ -12548,18 +12056,23 @@ function $RootScopeProvider(){
           child.$$asyncQueue = this.$$asyncQueue;
           child.$$postDigestQueue = this.$$postDigestQueue;
         } else {
-          ChildScope = function() {}; // should be anonymous; This is so that when the minifier munges
-            // the name it does not become random set of chars. This will then show up as class
-            // name in the web inspector.
-          ChildScope.prototype = this;
-          child = new ChildScope();
-          child.$id = nextUid();
+          // Only create a child scope class if somebody asks for one,
+          // but cache it to allow the VM to optimize lookups.
+          if (!this.$$childScopeClass) {
+            this.$$childScopeClass = function() {
+              this.$$watchers = this.$$nextSibling =
+                  this.$$childHead = this.$$childTail = null;
+              this.$$listeners = {};
+              this.$$listenerCount = {};
+              this.$id = nextUid();
+              this.$$childScopeClass = null;
+            };
+            this.$$childScopeClass.prototype = this;
+          }
+          child = new this.$$childScopeClass();
         }
         child['this'] = child;
-        child.$$listeners = {};
-        child.$$listenerCount = {};
         child.$parent = this;
-        child.$$watchers = child.$$nextSibling = child.$$childHead = child.$$childTail = null;
         child.$$prevSibling = this.$$childTail;
         if (this.$$childHead) {
           this.$$childTail.$$nextSibling = child;
@@ -12715,9 +12228,61 @@ function $RootScopeProvider(){
         // the while loop reads in reverse order.
         array.unshift(watcher);
 
-        return function() {
+        return function deregisterWatch() {
           arrayRemove(array, watcher);
           lastDirtyWatch = null;
+        };
+      },
+
+      /**
+       * @ngdoc method
+       * @name $rootScope.Scope#$watchGroup
+       * @function
+       *
+       * @description
+       * A variant of {@link ng.$rootScope.Scope#$watch $watch()} where it watches an array of `watchExpressions`.
+       * If any one expression in the collection changes the `listener` is executed.
+       *
+       * - The items in the `watchCollection` array are observed via standard $watch operation and are examined on every
+       *   call to $digest() to see if any items changes.
+       * - The `listener` is called whenever any expression in the `watchExpressions` array changes.
+       *
+       * @param {Array.<string|Function(scope)>} watchExpressions Array of expressions that will be individually
+       * watched using {@link ng.$rootScope.Scope#$watch $watch()}
+       *
+       * @param {function(newValues, oldValues, scope)} listener Callback called whenever the return value of any
+       *    expression in `watchExpressions` changes
+       *    The `newValues` array contains the current values of the `watchExpressions`, with the indexes matching
+       *    those of `watchExpression`
+       *    and the `oldValues` array contains the previous values of the `watchExpressions`, with the indexes matching
+       *    those of `watchExpression`
+       *    The `scope` refers to the current scope.
+       *
+       * @returns {function()} Returns a de-registration function for all listeners.
+       */
+      $watchGroup: function(watchExpressions, listener) {
+        var oldValues = new Array(watchExpressions.length);
+        var newValues = new Array(watchExpressions.length);
+        var deregisterFns = [];
+        var changeCount = 0;
+        var self = this;
+
+        forEach(watchExpressions, function (expr, i) {
+          deregisterFns.push(self.$watch(expr, function (value, oldValue) {
+            newValues[i] = value;
+            oldValues[i] = oldValue;
+            changeCount++;
+          }));
+        }, this);
+
+        deregisterFns.push(self.$watch(function () {return changeCount;}, function () {
+          listener(newValues, oldValues, self);
+        }));
+
+        return function deregisterWatchGroup() {
+          forEach(deregisterFns, function (fn) {
+            fn();
+          });
         };
       },
 
@@ -13123,7 +12688,7 @@ function $RootScopeProvider(){
 
         // prevent NPEs since these methods have references to properties we nulled out
         this.$destroy = this.$digest = this.$apply = noop;
-        this.$on = this.$watch = function() { return noop; };
+        this.$on = this.$watch = this.$watchGroup = function() { return noop; };
       },
 
       /**
@@ -16532,7 +16097,7 @@ var nullFormCtrl = {
  *  - `url`
  *
  * @description
- * `FormController` keeps track of all its controls and nested forms as well as state of them,
+ * `FormController` keeps track of all its controls and nested forms as well as the state of them,
  * such as being valid/invalid or dirty/pristine.
  *
  * Each {@link ng.directive:form form} directive creates an instance
@@ -17799,6 +17364,7 @@ function addNativeHtml5Validators(ctrl, validatorName, element) {
 
 function textInputType(scope, element, attr, ctrl, $sniffer, $browser) {
   var validity = element.prop('validity');
+  var placeholder = element[0].placeholder, noevent = {};
 
   // In composition mode, users are still inputing intermediate text buffer,
   // hold the listener until composition is done.
@@ -17820,6 +17386,15 @@ function textInputType(scope, element, attr, ctrl, $sniffer, $browser) {
     if (composing) return;
     var value = element.val(),
         event = ev && ev.type;
+
+    // IE (11 and under) seem to emit an 'input' event if the placeholder value changes.
+    // We don't want to dirty the value when this happens, so we abort here. Unfortunately,
+    // IE also sends input events for other non-input-related things, (such as focusing on a
+    // form control), so this change is not entirely enough to solve this.
+    if (msie && (ev || noevent).type === 'input' && element[0].placeholder !== placeholder) {
+      placeholder = element[0].placeholder;
+      return;
+    }
 
     // By default we will trim the value
     // If the attribute ng-trim exists we will avoid trimming
@@ -21262,7 +20837,7 @@ var ngPluralizeDirective = ['$locale', '$interpolate', function($locale, $interp
           //if explicit number rule such as 1, 2, 3... is defined, just use it. Otherwise,
           //check it against pluralization rules in $locale service
           if (!(value in whens)) value = $locale.pluralCat(value - offset);
-           return whensExpFns[value](scope, element, true);
+           return whensExpFns[value](scope);
         } else {
           return '';
         }
@@ -22081,11 +21656,14 @@ var ngStyleDirective = ngDirective(function(scope, element, attr) {
  * leave - happens just after the ngSwitch contents change and just before the former contents are removed from the DOM
  *
  * @usage
+ *
+ * ```
  * <ANY ng-switch="expression">
  *   <ANY ng-switch-when="matchValue1">...</ANY>
  *   <ANY ng-switch-when="matchValue2">...</ANY>
  *   <ANY ng-switch-default>...</ANY>
  * </ANY>
+ * ```
  *
  *
  * @scope
@@ -22997,7 +22575,9 @@ var optionDirective = ['$interpolate', function($interpolate) {
         if (interpolateFn) {
           scope.$watch(interpolateFn, function interpolateWatchAction(newVal, oldVal) {
             attr.$set('value', newVal);
-            if (newVal !== oldVal) selectCtrl.removeOption(oldVal);
+            if (oldVal !== newVal) {
+              selectCtrl.removeOption(oldVal);
+            }
             selectCtrl.addOption(newVal);
           });
         } else {
@@ -23036,913 +22616,7 @@ var styleDirective = valueFn({
 })(window, document);
 
 !angular.$$csp() && angular.element(document).find('head').prepend('<style type="text/css">@charset "UTF-8";[ng\\:cloak],[ng-cloak],[data-ng-cloak],[x-ng-cloak],.ng-cloak,.x-ng-cloak,.ng-hide{display:none !important;}ng\\:form{display:block;}</style>');
-},{}],3:[function(require,module,exports){
-/**
- * Angular JS slider directive
- *
- * (c) Rafal Zajac <rzajac@gmail.com>
- * http://github.com/rzajac/angularjs-slider
- *
- * Version: v0.1.2
- *
- * Licensed under the MIT license
- */
-
-/* global angular: false */
-
-angular.module('rzModule', [])
-
-.value('throttle',
-  /**
-   * throttle
-   *
-   * Taken from underscore project
-   *
-   * @param {Function} func
-   * @param {number} wait
-   * @param {ThrottleOptions} options
-   * @returns {Function}
-   */
-function throttle(func, wait, options) {
-  var getTime = (Date.now || function() {
-    return new Date().getTime();
-  });
-  var context, args, result;
-  var timeout = null;
-  var previous = 0;
-  options || (options = {});
-  var later = function() {
-    previous = options.leading === false ? 0 : getTime();
-    timeout = null;
-    result = func.apply(context, args);
-    context = args = null;
-  };
-  return function() {
-    var now = getTime();
-    if (!previous && options.leading === false) previous = now;
-    var remaining = wait - (now - previous);
-    context = this;
-    args = arguments;
-    if (remaining <= 0) {
-      clearTimeout(timeout);
-      timeout = null;
-      previous = now;
-      result = func.apply(context, args);
-      context = args = null;
-    } else if (!timeout && options.trailing !== false) {
-      timeout = setTimeout(later, remaining);
-    }
-    return result;
-  }
-})
-
-.factory('Slider', ['$timeout', '$document', 'throttle', function($timeout, $document, throttle)
-{
-  /**
-   * Slider
-   *
-   * @param {ngScope} scope            The AngularJS scope
-   * @param {Element} sliderElem The slider directive element wrapped in jqLite
-   * @param {*} attributes       The slider directive attributes
-   * @constructor
-   */
-  var Slider = function(scope, sliderElem, attributes)
-  {
-    /**
-     * The slider's scope
-     *
-     * @type {ngScope}
-     */
-    this.scope = scope;
-
-    /**
-     * The slider attributes
-     *
-     * @type {*}
-     */
-    this.attributes = attributes;
-
-    /**
-     * Slider element wrapped in jqLite
-     *
-     * @type {jqLite}
-     */
-    this.sliderElem = sliderElem;
-
-    /**
-     * Slider type
-     *
-     * @type {string}
-     */
-    this.range = attributes.rzSliderHigh !== undefined && attributes.rzSliderModel !== undefined;
-
-    /**
-     * Half of the width of the slider handles
-     *
-     * @type {number}
-     */
-    this.handleHalfWidth = 0;
-
-    /**
-     * Maximum left the slider handle can have
-     *
-     * @type {number}
-     */
-    this.maxLeft = 0;
-
-    /**
-     * Precision
-     *
-     * @type {number}
-     */
-    this.precision = 0;
-
-    /**
-     * Step
-     *
-     * @type {number}
-     */
-    this.step = 0;
-
-    /**
-     * The name of the handle we are currently tracking
-     *
-     * @type {string}
-     */
-    this.tracking = '';
-
-    /**
-     * Minimum value (floor) of the model
-     *
-     * @type {number}
-     */
-    this.minValue = 0;
-
-    /**
-     * Maximum value (ceiling) of the model
-     *
-     * @type {number}
-     */
-    this.maxValue = 0;
-
-    /**
-     * The delta between min and max value
-     *
-     * @type {number}
-     */
-    this.valueRange = 0;
-
-    /**
-     * Set to true if init method already executed
-     *
-     * @type {boolean}
-     */
-    this.initRun = false;
-
-    /**
-     * Custom translate function
-     *
-     * @type {function}
-     */
-    this.customTrFn = null;
-
-    // Slider DOM elements wrapped in jqLite
-    this.fullBar = null; // The whole slider bar
-    this.selBar = null;  // Highlight between two handles
-    this.minH = null;  // Left slider handle
-    this.maxH = null;  // Right slider handle
-    this.flrLab = null;  // Floor label
-    this.ceilLab = null; // Ceiling label
-    this.minLab =  null; // Label above the low value
-    this.maxLab = null; // Label above the high value
-    this.cmbLab = null;  // Combined label
-
-    // Initialize slider
-    this.init();
-  };
-
-  // Add instance methods
-  Slider.prototype = {
-
-    /**
-     * Initialize slider
-     *
-     * @returns {undefined}
-     */
-    init: function()
-    {
-      var self = this;
-
-      if(this.scope.rzSliderTranslate)
-      {
-        this.customTrFn = this.scope.rzSliderTranslate();
-      }
-
-      this.initElemHandles();
-      this.calcViewDimensions();
-
-      this.setMinAndMax();      
-      this.precision = this.scope.rzSliderPrecision === undefined ? 0 : +this.scope.rzSliderPrecision;
-      this.step = this.scope.rzSliderStep === undefined ? 1 : +this.scope.rzSliderStep;
-
-      $timeout(function()
-      {
-        self.updateCeilLab();
-        self.updateFloorLab();
-        self.initHandles();
-        self.bindEvents();
-      });
-
-      // Recalculate stuff if view port dimensions have changed
-      angular.element(window).on('resize', angular.bind(this, this.calcViewDimensions));
-
-      this.initRun = true;
-
-      // Watch for changes to the model
-
-      var thrLow = throttle(function()
-      {
-        self.updateLowHandle(self.valueToOffset(self.scope.rzSliderModel));
-
-        if(self.range)
-        {
-          self.updateSelectionBar();
-          self.updateCmbLabel();
-        }
-
-      }, 350, { leading: false });
-
-      var thrHigh = throttle(function()
-      {
-        self.updateHighHandle(self.valueToOffset(self.scope.rzSliderHigh));
-        self.updateSelectionBar();
-        self.updateCmbLabel();
-      }, 350, { leading: false });
-
-      this.scope.$watch('rzSliderModel', function(newValue, oldValue)
-      {
-        if(newValue === oldValue) return;
-        thrLow();
-      });
-
-      this.scope.$watch('rzSliderHigh', function(newValue, oldValue)
-      {
-        if(newValue === oldValue) return;
-        thrHigh();
-      });
-    },
-
-    /**
-     * Initialize slider handles positions and labels
-     *
-     * Run only once during initialization and every time view port changes size
-     *
-     * @returns {undefined}
-     */
-    initHandles: function()
-    {
-      this.updateLowHandle(this.valueToOffset(this.scope.rzSliderModel));
-
-      if(this.range)
-      {
-        this.updateHighHandle(this.valueToOffset(this.scope.rzSliderHigh));
-        this.updateSelectionBar();
-        this.updateCmbLabel();
-      }
-    },
-
-    /**
-     * Translate value to human readable format
-     *
-     * @param {number|string} value
-     * @param {jqLite} label
-     * @param {bool} useCustomTr
-     * @returns {undefined}
-     */
-    translateFn: function(value, label, useCustomTr)
-    {
-      useCustomTr = useCustomTr === undefined ? true : useCustomTr;
-
-      var valStr = this.customTrFn && useCustomTr ? '' + this.customTrFn(value) : '' + value,
-        getWidth = false;
-
-      if(label.rzsv === undefined || label.rzsv.length != valStr.length)
-      {
-        getWidth = true;
-        label.rzsv = valStr;
-      }
-
-      label.text(valStr);
-
-      // Update width only when length of the label have changed
-      if(getWidth) { this.getWidth(label); }
-    },
-
-    /**
-     * Set maximum and minimum values for the slider
-     *
-     * @returns {undefined}
-     */
-    setMinAndMax: function()
-    {
-      if(this.scope.rzSliderFloor)
-      {
-        this.minValue = +this.scope.rzSliderFloor;
-      }
-      else
-      {
-        this.minValue = this.scope.rzSliderFloor = 0;
-      }
-
-      if(this.scope.rzSliderCeil)
-      {
-        this.maxValue = +this.scope.rzSliderCeil;
-      }
-      else
-      {
-        this.scope.rzSliderCeil = this.maxValue = this.range ? this.scope.rzSliderHigh : this.scope.rzSliderModel;
-      }
-
-      this.valueRange = this.maxValue - this.minValue;
-    },
-
-    /**
-     * Set the slider children to variables for easy access
-     *
-     * Run only once during initialization
-     *
-     * @returns {undefined}
-     */
-    initElemHandles: function()
-    {
-      angular.forEach(this.sliderElem.children(), function(elem, index)
-      {
-        var _elem = angular.element(elem);
-
-        switch(index)
-        {
-          case 0: this.fullBar = _elem; break;
-          case 1: this.selBar = _elem; break;
-          case 2: this.minH = _elem; break;
-          case 3: this.maxH = _elem; break;
-          case 4: this.flrLab = _elem; break;
-          case 5: this.ceilLab = _elem; break;
-          case 6: this.minLab = _elem; break;
-          case 7: this.maxLab = _elem; break;
-          case 8: this.cmbLab = _elem; break;
-        }
-
-      }, this);
-
-      // Initialize offsets
-      this.fullBar.rzsl = 0;
-      this.selBar.rzsl = 0;
-      this.minH.rzsl = 0;
-      this.maxH.rzsl = 0;
-      this.flrLab.rzsl = 0;
-      this.ceilLab.rzsl = 0;
-      this.minLab.rzsl = 0;
-      this.maxLab.rzsl = 0;
-      this.cmbLab.rzsl = 0;
-
-      // Remove stuff not needed in single slider
-      if( ! this.range)
-      {
-        this.cmbLab.remove();
-        this.maxLab.remove();
-        this.maxH.remove();
-        this.selBar.remove();
-      }
-    },
-
-    /**
-     * Calculate dimensions that are dependent on view port size
-     *
-     * Run once during initialization and every time view port changes size.
-     *
-     * @returns {undefined}
-     */
-    calcViewDimensions: function ()
-    {
-      var handleWidth = this.getWidth(this.minH);
-
-      this.handleHalfWidth = handleWidth / 2;
-      this.barWidth = this.getWidth(this.fullBar);
-
-      this.maxLeft = this.barWidth - handleWidth;
-
-      this.getWidth(this.sliderElem);
-      this.sliderElem.rzsl = this.sliderElem[0].getBoundingClientRect().left;
-
-      if(this.initRun)
-      {
-        this.updateCeilLab();
-        this.initHandles();
-      }
-    },
-
-    /**
-     * Update position of the ceiling label
-     *
-     * @returns {undefined}
-     */
-    updateCeilLab: function()
-    {
-      this.translateFn(this.scope.rzSliderCeil, this.ceilLab);
-      this.setLeft(this.ceilLab, this.barWidth - this.ceilLab.rzsw);
-      this.getWidth(this.ceilLab);
-    },
-
-    /**
-     * Update position of the floor label
-     *
-     * @returns {undefined}
-     */
-    updateFloorLab: function()
-    {
-      this.translateFn(this.scope.rzSliderFloor, this.flrLab);
-      this.getWidth(this.flrLab);
-    },
-
-    /**
-     * Update slider handles and label positions
-     *
-     * @param {string} which
-     * @param {number} newOffset
-     */
-    updateHandles: function(which, newOffset)
-    {
-      if(which === 'rzSliderModel')
-      {
-        this.updateLowHandle(newOffset);
-        if(this.range)
-        {
-          this.updateSelectionBar();
-          this.updateCmbLabel();
-        }
-        return;
-      }
-
-      if(which === 'rzSliderHigh')
-      {
-        this.updateHighHandle(newOffset);
-        if(this.range)
-        {
-          this.updateSelectionBar();
-          this.updateCmbLabel();
-        }
-        return;
-      }
-
-      // Update both
-      this.updateLowHandle(newOffset);
-      this.updateHighHandle(newOffset);
-      this.updateSelectionBar();
-      this.updateCmbLabel();
-    },
-
-    /**
-     * Update low slider handle position and label
-     *
-     * @param {number} newOffset
-     * @returns {undefined}
-     */
-    updateLowHandle: function(newOffset)
-    {
-      this.setLeft(this.minH, newOffset);
-      this.translateFn(this.scope.rzSliderModel, this.minLab);
-      this.setLeft(this.minLab, newOffset - this.minLab.rzsw / 2 + this.handleHalfWidth);
-
-      this.shFloorCeil();
-    },
-
-    /**
-     * Update high slider handle position and label
-     *
-     * @param {number} newOffset
-     * @returns {undefined}
-     */
-    updateHighHandle: function(newOffset)
-    {
-      this.setLeft(this.maxH, newOffset);
-      this.translateFn(this.scope.rzSliderHigh, this.maxLab);
-      this.setLeft(this.maxLab, newOffset - this.maxLab.rzsw / 2 + this.handleHalfWidth);
-
-      this.shFloorCeil();
-    },
-
-    /**
-     * Show / hide floor / ceiling label
-     *
-     * @returns {undefined}
-     */
-    shFloorCeil: function()
-    {
-      var flHidden = false, clHidden = false;
-
-      if(this.minLab.rzsl <= this.flrLab.rzsl + this.flrLab.rzsw + 5)
-      {
-        flHidden = true;
-        this.hideEl(this.flrLab);
-      }
-      else
-      {
-        flHidden = false;
-        this.showEl(this.flrLab);
-      }
-
-      if(this.minLab.rzsl + this.minLab.rzsw >= this.ceilLab.rzsl - this.handleHalfWidth - 10)
-      {
-        clHidden = true;
-        this.hideEl(this.ceilLab);
-      }
-      else
-      {
-        clHidden = false;
-        this.showEl(this.ceilLab);
-      }
-
-      if(this.range)
-      {
-        if(this.maxLab.rzsl + this.maxLab.rzsw >= this.ceilLab.rzsl - 10)
-        {
-          this.hideEl(this.ceilLab);
-        }
-        else if( ! clHidden)
-        {
-          this.showEl(this.ceilLab);
-        }
-
-        // Hide or show floor label
-        if(this.maxLab.rzsl <= this.flrLab.rzsl + this.flrLab.rzsw + this.handleHalfWidth)
-        {
-          this.hideEl(this.flrLab);
-        }
-        else if( ! flHidden)
-        {
-          this.showEl(this.flrLab);
-        }
-      }
-    },
-
-    /**
-     * Update slider selection bar, combined label and range label
-     *
-     * @returns {undefined}
-     */
-    updateSelectionBar: function()
-    {
-      this.setWidth(this.selBar, this.maxH.rzsl - this.minH.rzsl);
-      this.setLeft(this.selBar, this.minH.rzsl + this.handleHalfWidth);
-    },
-
-    /**
-     * Update combined label position and value
-     *
-     * @returns {undefined}
-     */
-    updateCmbLabel: function()
-    {
-      var lowTr, highTr;
-
-      if(this.minLab.rzsl + this.minLab.rzsw + 10 >= this.maxLab.rzsl)
-      {
-        if(this.customTrFn)
-        {
-          lowTr = this.customTrFn(this.scope.rzSliderModel);
-          highTr = this.customTrFn(this.scope.rzSliderHigh);
-        }
-        else
-        {
-          lowTr = this.scope.rzSliderModel;
-          highTr = this.scope.rzSliderHigh;
-        }
-
-        this.translateFn(lowTr + ' - ' + highTr, this.cmbLab, false);
-        this.setLeft(this.cmbLab, this.selBar.rzsl + this.selBar.rzsw / 2 - this.cmbLab.rzsw / 2);
-        this.hideEl(this.minLab);
-        this.hideEl(this.maxLab);
-        this.showEl(this.cmbLab);
-      }
-      else
-      {
-        this.showEl(this.maxLab);
-        this.showEl(this.minLab);
-        this.hideEl(this.cmbLab);
-      }
-    },
-
-    /**
-     * Round value to step and precision
-     *
-     * @param {number} value
-     * @returns {number}
-     */
-    roundStep: function(value)
-    {
-      var step = this.step,
-        remainder = (value - this.minValue) % step,
-        steppedValue = remainder > (step / 2) ? value + step - remainder : value - remainder;
-
-      return +(steppedValue).toFixed(this.precision);
-    },
-
-    /**
-     * Hide element
-     *
-     * @param element
-     * @returns {jqLite} The jqLite wrapped DOM element
-     */
-    hideEl: function (element)
-    {
-      return element.css({opacity: 0});
-    },
-
-    /**
-     * Show element
-     *
-     * @param element The jqLite wrapped DOM element
-     * @returns {jqLite} The jqLite
-     */
-    showEl: function (element)
-    {
-      return element.css({opacity: 1});
-    },
-
-    /**
-     * Set element left offset
-     *
-     * @param {jqLite} elem The jqLite wrapped DOM element
-     * @param {number} left
-     * @returns {number}
-     */
-    setLeft: function (elem, left)
-    {
-      elem.rzsl = left;
-      elem.css({left: left + 'px'});
-      return left;
-    },
-
-    /**
-     * Get element width
-     *
-     * @param {jqLite} elem The jqLite wrapped DOM element
-     * @returns {number}
-     */
-    getWidth: function(elem)
-    {
-      var val = elem[0].getBoundingClientRect();
-      elem.rzsw = val.right - val.left;
-      return elem.rzsw;
-    },
-
-    /**
-     * Set element width
-     *
-     * @param {jqLite} elem  The jqLite wrapped DOM element
-     * @param {number} width
-     * @returns {*}
-     */
-    setWidth: function(elem, width)
-    {
-      elem.rzsw = width;
-      elem.css({width: width + 'px'});
-      return width;
-    },
-
-    /**
-     * Translate value to pixel offset
-     *
-     * @param {number} val
-     * @returns {number}
-     */
-    valueToOffset: function(val)
-    {
-      return (val - this.minValue) * this.maxLeft / this.valueRange;
-    },
-
-    /**
-     * Translate offset to model value
-     *
-     * @param {number} offset
-     * @returns {number}
-     */
-    offsetToValue: function(offset)
-    {
-      return (offset / this.maxLeft) * this.valueRange + this.minValue;
-    },
-
-    // Events
-
-    /**
-     * Bind mouse and touch events to slider handles
-     *
-     * @returns {undefined}
-     */
-    bindEvents: function()
-    {
-      this.minH.on('mousedown', angular.bind(this, this.onStart, this.minH, 'rzSliderModel'));
-      if(this.range) { this.maxH.on('mousedown', angular.bind(this, this.onStart, this.maxH, 'rzSliderHigh')) }
-
-      this.minH.on('touchstart', angular.bind(this, this.onStart, this.minH, 'rzSliderModel'));
-      if(this.range) { this.maxH.on('touchstart', angular.bind(this, this.onStart, this.maxH, 'rzSliderHigh')) }
-    },
-
-    /**
-     * onStart event handler
-     *
-     * @param {Object} pointer The jqLite wrapped DOM element
-     * @param {string} ref     One of the refLow, refHigh values
-     * @param {Event}  event   The event
-     * @returns {undefined}
-     */
-    onStart: function (pointer, ref, event)
-    {
-      event.stopPropagation();
-      event.preventDefault();
-
-      if(this.tracking !== '') { return }
-
-      // We have to do this in case the HTML where the sliders are on 
-      // have been animated into view.
-      this.calcViewDimensions();
-      this.tracking = ref;
-
-      pointer.addClass('active');
-
-      if(event.touches)
-      {
-        $document.on('touchmove', angular.bind(this, this.onMove, pointer));
-        $document.on('touchend', angular.bind(this, this.onEnd));
-      }
-      else
-      {
-        $document.on('mousemove', angular.bind(this, this.onMove, pointer));
-        $document.on('mouseup', angular.bind(this, this.onEnd));
-      }
-    },
-
-    /**
-     * onMove event handler
-     *
-     * @param {jqLite} pointer
-     * @param {Event}  event The event
-     * @returns {undefined}
-     */
-    onMove: function (pointer, event)
-    {
-      var eventX = event.clientX || event.touches[0].clientX,
-        sliderLO = this.sliderElem.rzsl,
-        newOffset = eventX - sliderLO - this.handleHalfWidth,
-        newValue;
-
-      if(newOffset <= 0)
-      {
-        if(pointer.rzsl !== 0)
-        {
-          this.scope[this.tracking] = this.minValue;
-          this.updateHandles(this.tracking, 0);
-          this.scope.$apply();
-        }
-
-        return;
-      }
-
-      if(newOffset >= this.maxLeft)
-      {
-        if(pointer.rzsl !== this.maxLeft)
-        {
-          this.scope[this.tracking] = this.maxValue;
-          this.updateHandles(this.tracking, this.maxLeft);
-          this.scope.$apply();
-        }
-
-        return;
-      }
-
-      newValue = this.offsetToValue(newOffset);
-      newValue = this.roundStep(newValue);
-
-      if (this.range)
-      {
-        if (this.tracking === 'rzSliderModel' && newValue >= this.scope.rzSliderHigh)
-        {
-          this.scope[this.tracking] = this.scope.rzSliderHigh;
-          this.updateHandles(this.tracking, this.maxH.rzsl);
-          this.tracking = 'rzSliderHigh';
-          this.minH.removeClass('active');
-          this.maxH.addClass('active');
-        }
-        else if(this.tracking === 'rzSliderHigh' && newValue <= this.scope.rzSliderModel)
-        {
-          this.scope[this.tracking] = this.scope.rzSliderModel;
-          this.updateHandles(this.tracking, this.minH.rzsl);
-          this.tracking = 'rzSliderModel';
-          this.maxH.removeClass('active');
-          this.minH.addClass('active');
-        }
-      }
-
-      if(this.scope[this.tracking] !== newValue)
-      {
-        this.scope[this.tracking] = newValue;
-        this.updateHandles(this.tracking, newOffset);
-        this.scope.$apply();
-      }
-    },
-
-    /**
-     * onEnd event handler
-     *
-     * @param {Event} event    The event
-     * @returns {undefined}
-     */
-    onEnd: function(event)
-    {
-      this.minH.removeClass('active');
-      this.maxH.removeClass('active');
-
-      if(event.touches)
-      {
-        $document.unbind('touchmove');
-        $document.unbind('touchend');
-      }
-      else
-      {
-        $document.unbind('mousemove');
-        $document.unbind('mouseup');
-      }
-
-      this.tracking = '';
-    }
-  };
-
-  return Slider;
-}])
-
-.directive('rzslider', ['Slider', function(Slider)
-{
-  return {
-    restrict: 'E',
-    scope: {
-      rzSliderFloor: '=?',
-      rzSliderCeil: '=?',
-      rzSliderStep: '@',
-      rzSliderPrecision: '@',
-      rzSliderModel: '=?',
-      rzSliderHigh: '=?',
-      rzSliderTranslate: '&'
-    },
-    template:   '<span class="bar"></span>' + // 0 The slider bar
-                '<span class="bar selection"></span>' + // 1 Highlight between two handles
-                '<span class="pointer"></span>' + // 2 Left slider handle
-                '<span class="pointer"></span>' + // 3 Right slider handle
-                '<span class="bubble limit"></span>' + // 4 Floor label
-                '<span class="bubble limit"></span>' + // 5 Ceiling label
-                '<span class="bubble"></span>' + // 6 Label above left slider handle
-                '<span class="bubble"></span>' + // 7 Label above right slider handle
-                '<span class="bubble"></span>', // 8 Range label when the slider handles are close ex. 15 - 17
-
-    link: function(scope, elem, attr)
-    {
-      return new Slider(scope, elem, attr);
-    }
-  };
-}]);
-
-// IDE assist
-
-/**
- * @name ngScope
- *
- * @property {number} rzSliderModel
- * @property {number} rzSliderHigh
- * @property {number} rzSliderCeil
- */
-
-/**
- * @name jqLite
- *
- * @property {number|undefined} rzsl
- * @property {number|undefined} rzsw
- * @property {string|undefined} rzsv
- * @property {Function} css
- * @property {Function} text
- */
-
-/**
- * @name Event
- * @property {Array} touches
- */
-
-/**
- * @name ThrottleOptions
- *
- * @property {bool} leading
- * @property {bool} trailing
- */
-
-},{}],4:[function(require,module,exports){
+},{}],2:[function(require,module,exports){
 'use strict';
 
 
@@ -23962,7 +22636,7 @@ module.exports = filterCtrl;
 filterCtrl.$inject = ['filterService'];
 
 
-},{}],5:[function(require,module,exports){
+},{}],3:[function(require,module,exports){
 var jade = require("jade/runtime");
 
 module.exports = function template(locals) {
@@ -23970,9 +22644,9 @@ var buf = [];
 var jade_mixins = {};
 var jade_interp;
 
-buf.push("<div class=\"sidebar\"><ul class=\"facets left\"><li><a ui-sref=\"index.products\">Alle</a></li><li ng-repeat=\"category in filter.categories\"><a ui-sref=\"index.products.category({category: category._id})\">{{category._id}}</a><ul class=\"facets facets--sub\"><li ng-repeat=\"subCategory in category.subCategories\" ng-if=\"category._id === $stateParams.category\"><a ui-sref=\"index.products.category.subCategory({subCategory: subCategory})\">{{subCategory}}</a></li></ul></li></ul></div><ui-view class=\"content\"></ui-view><div class=\"dev align-center\">$state = {{$state.current.name}} | \n$stateParams = {{$stateParams}} | \n$state full url = {{ $state.$current.url.source }}</div>");;return buf.join("");
+buf.push("<div class=\"sidebar left\"><ul class=\"facets\"><li><a ui-sref=\"index.products\" ng-class=\"{'is-active': $state.current.name == 'index.products'}\" class=\"label\">Alle</a></li><li ng-repeat=\"category in filter.categories\"><a ui-sref=\"index.products.category({category: category._id})\" ng-class=\"{'is-active': category._id === $stateParams.category}\" class=\"label\">{{category._id}}</a><ul class=\"facets facets--sub\"><li ng-if=\"category._id === $stateParams.category\" ng-repeat=\"subCategory in category.subCategories\"><a ui-sref=\"index.products.category.subCategory({subCategory: subCategory})\" ng-class=\"{'is-active': subCategory === $stateParams.subCategory}\" class=\"label\">{{subCategory}}</a></li></ul></li></ul></div><ui-view class=\"content\"></ui-view><div class=\"dev align-center\">$state = {{$state.current.name}} | \n$stateParams = {{$stateParams}} | \n$state full url = {{ $state.$current.url.source }}</div>");;return buf.join("");
 };
-},{"jade/runtime":16}],6:[function(require,module,exports){
+},{"jade/runtime":14}],4:[function(require,module,exports){
 'use strict';
 
 var index = require('./filter.index.jade');
@@ -23987,7 +22661,7 @@ module.exports = function ($stateProvider, $urlRouterProvider) {
       controller: 'filterCtrl as filter'
     });
 };
-},{"./filter.index.jade":5}],7:[function(require,module,exports){
+},{"./filter.index.jade":3}],5:[function(require,module,exports){
 'use strict';
 
 function filter($http) {
@@ -24001,7 +22675,7 @@ function filter($http) {
 filter.$inject = ['$http'];
 
 module.exports = filter;
-},{}],8:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 'use strict';
 
 var uiRouter = require('angular-ui-router'),
@@ -24025,11 +22699,8 @@ module.exports = angular
   .config(routes)
   .factory('filterService', filterService)
   .controller('filterCtrl', filterCtrl);
-},{"./filter.controller":4,"./filter.routes":6,"./filter.service":7,"./products":9,"angular-ui-router":15,"lodash-node":90}],9:[function(require,module,exports){
+},{"./filter.controller":2,"./filter.routes":4,"./filter.service":5,"./products":7,"angular-ui-router":13,"lodash-node":88}],7:[function(require,module,exports){
 'use strict';
-
-require("./../../../bower_components/angular-touch/angular-touch.js");
-require("./../../../bower_components/angularjs-slider/rzslider.js");
 
 var productsService = require('./products.service'),
     routes = require('./products.routes'),
@@ -24038,14 +22709,12 @@ var productsService = require('./products.service'),
 
 module.exports = angular
   .module('pApp.filter.products', [
-    uiRouter,
-    'ngTouch',
-    'rzModule'
+    uiRouter
   ])
   .config(routes)
   .factory('productsService', productsService)
   .controller('productsCtrl', productsCtrl);
-},{"./../../../bower_components/angular-touch/angular-touch.js":1,"./../../../bower_components/angularjs-slider/rzslider.js":3,"./products.controller":10,"./products.routes":12,"./products.service":13,"angular-ui-router":15}],10:[function(require,module,exports){
+},{"./products.controller":8,"./products.routes":10,"./products.service":11,"angular-ui-router":13}],8:[function(require,module,exports){
 'use strict';
 
 var _ = require('lodash-node');
@@ -24086,7 +22755,7 @@ productsCtrl.$inject = ['productsService'];
 
 module.exports = productsCtrl;
 
-},{"lodash-node":90}],11:[function(require,module,exports){
+},{"lodash-node":88}],9:[function(require,module,exports){
 var jade = require("jade/runtime");
 
 module.exports = function template(locals) {
@@ -24094,9 +22763,9 @@ var buf = [];
 var jade_mixins = {};
 var jade_interp;
 
-buf.push(" <input type=\"range\" min=\"{{products.slider.min}}\" max=\"{{products.slider.max}}\" value=\"products.maxPrice\" ng-model=\"products.maxPrice\"/><p>{{products.maxPrice}}</p><div data-flex=\"data-flex\"><div data-flex-item=\"data-flex-item\" ng-repeat=\"product in products.data | filter: $stateParams | filter: products.filterByMaxPrice | limitTo: 10\"><div class=\"tile\"><div class=\"tile__image\"><img ng-src=\"{{product.img}}\"/></div><h2 class=\"delta flush\">{{product.name}}</h2><p class=\"flush small\">{{product.brand}}</p><p class=\"flush price\">{{product.price | currency: 'kr. '}}</p></div></div></div>");;return buf.join("");
+buf.push("<div class=\"range\"><input type=\"range\" min=\"{{products.slider.min}}\" max=\"{{products.slider.max}}\" value=\"products.maxPrice\" ng-model=\"products.maxPrice\"/><p>{{products.maxPrice}}</p></div><div data-flex=\"data-flex\"><div data-flex-item=\"data-flex-item\" ng-repeat=\"product in products.data | filter: $stateParams | filter: products.filterByMaxPrice | limitTo: 10\"><div class=\"tile\"><div class=\"tile__image\"><img ng-src=\"{{product.img}}\"/></div><h2 class=\"delta flush\">{{product.name}}</h2><p class=\"flush small\">{{product.brand}}</p><p class=\"flush price\">{{product.price | currency: 'kr. '}}</p></div></div></div>");;return buf.join("");
 };
-},{"jade/runtime":16}],12:[function(require,module,exports){
+},{"jade/runtime":14}],10:[function(require,module,exports){
 'use strict';
 
 var index = require('./products.index.jade');
@@ -24115,7 +22784,7 @@ module.exports = function ($stateProvider) {
           url: '/{subCategory}'
         });
 };
-},{"./products.index.jade":11}],13:[function(require,module,exports){
+},{"./products.index.jade":9}],11:[function(require,module,exports){
 'use strict';
 
 function filterService($http) {
@@ -24129,14 +22798,14 @@ function filterService($http) {
 filterService.$inject = ['$http'];
 
 module.exports = filterService;
-},{}],14:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 require("./../bower_components/angular/angular.js");
 
 angular.module('pApp', [
     require('./filter').name
   ]);
 
-},{"./../bower_components/angular/angular.js":2,"./filter":8}],15:[function(require,module,exports){
+},{"./../bower_components/angular/angular.js":1,"./filter":6}],13:[function(require,module,exports){
 /**
  * State-based routing for AngularJS
  * @version v0.2.10
@@ -27360,7 +26029,7 @@ angular.module('ui.router.compat')
   .provider('$route', $RouteProvider)
   .directive('ngView', $ViewDirective);
 })(window, window.angular);
-},{}],16:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 (function (global){
 !function(e){if("object"==typeof exports)module.exports=e();else if("function"==typeof define&&define.amd)define(e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.jade=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
 'use strict';
@@ -27573,7 +26242,7 @@ exports.rethrow = function rethrow(err, filename, lineno, str){
 (1)
 });
 }).call(this,typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],17:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -27615,7 +26284,7 @@ module.exports = {
   'zipObject': require('./arrays/zipObject')
 };
 
-},{"./arrays/compact":18,"./arrays/difference":19,"./arrays/findIndex":20,"./arrays/findLastIndex":21,"./arrays/first":22,"./arrays/flatten":23,"./arrays/indexOf":24,"./arrays/initial":25,"./arrays/intersection":26,"./arrays/last":27,"./arrays/lastIndexOf":28,"./arrays/pull":29,"./arrays/range":30,"./arrays/remove":31,"./arrays/rest":32,"./arrays/sortedIndex":33,"./arrays/union":34,"./arrays/uniq":35,"./arrays/without":36,"./arrays/xor":37,"./arrays/zip":38,"./arrays/zipObject":39}],18:[function(require,module,exports){
+},{"./arrays/compact":16,"./arrays/difference":17,"./arrays/findIndex":18,"./arrays/findLastIndex":19,"./arrays/first":20,"./arrays/flatten":21,"./arrays/indexOf":22,"./arrays/initial":23,"./arrays/intersection":24,"./arrays/last":25,"./arrays/lastIndexOf":26,"./arrays/pull":27,"./arrays/range":28,"./arrays/remove":29,"./arrays/rest":30,"./arrays/sortedIndex":31,"./arrays/union":32,"./arrays/uniq":33,"./arrays/without":34,"./arrays/xor":35,"./arrays/zip":36,"./arrays/zipObject":37}],16:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -27655,7 +26324,7 @@ function compact(array) {
 
 module.exports = compact;
 
-},{}],19:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -27688,7 +26357,7 @@ function difference(array) {
 
 module.exports = difference;
 
-},{"../internals/baseDifference":97,"../internals/baseFlatten":98}],20:[function(require,module,exports){
+},{"../internals/baseDifference":95,"../internals/baseFlatten":96}],18:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -27755,7 +26424,7 @@ function findIndex(array, callback, thisArg) {
 
 module.exports = findIndex;
 
-},{"../functions/createCallback":79}],21:[function(require,module,exports){
+},{"../functions/createCallback":77}],19:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -27820,7 +26489,7 @@ function findLastIndex(array, callback, thisArg) {
 
 module.exports = findLastIndex;
 
-},{"../functions/createCallback":79}],22:[function(require,module,exports){
+},{"../functions/createCallback":77}],20:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -27908,7 +26577,7 @@ function first(array, callback, thisArg) {
 
 module.exports = first;
 
-},{"../functions/createCallback":79,"../internals/slice":132}],23:[function(require,module,exports){
+},{"../functions/createCallback":77,"../internals/slice":130}],21:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -27976,7 +26645,7 @@ function flatten(array, isShallow, callback, thisArg) {
 
 module.exports = flatten;
 
-},{"../collections/map":59,"../internals/baseFlatten":98}],24:[function(require,module,exports){
+},{"../collections/map":57,"../internals/baseFlatten":96}],22:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -28028,7 +26697,7 @@ function indexOf(array, value, fromIndex) {
 
 module.exports = indexOf;
 
-},{"../internals/baseIndexOf":99,"./sortedIndex":33}],25:[function(require,module,exports){
+},{"../internals/baseIndexOf":97,"./sortedIndex":31}],23:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -28112,7 +26781,7 @@ function initial(array, callback, thisArg) {
 
 module.exports = initial;
 
-},{"../functions/createCallback":79,"../internals/slice":132}],26:[function(require,module,exports){
+},{"../functions/createCallback":77,"../internals/slice":130}],24:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -28197,7 +26866,7 @@ function intersection() {
 
 module.exports = intersection;
 
-},{"../internals/baseIndexOf":99,"../internals/cacheIndexOf":104,"../internals/createCache":109,"../internals/getArray":113,"../internals/largeArraySize":119,"../internals/releaseArray":127,"../internals/releaseObject":128,"../objects/isArguments":149,"../objects/isArray":150}],27:[function(require,module,exports){
+},{"../internals/baseIndexOf":97,"../internals/cacheIndexOf":102,"../internals/createCache":107,"../internals/getArray":111,"../internals/largeArraySize":117,"../internals/releaseArray":125,"../internals/releaseObject":126,"../objects/isArguments":147,"../objects/isArray":148}],25:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -28283,7 +26952,7 @@ function last(array, callback, thisArg) {
 
 module.exports = last;
 
-},{"../functions/createCallback":79,"../internals/slice":132}],28:[function(require,module,exports){
+},{"../functions/createCallback":77,"../internals/slice":130}],26:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -28339,7 +27008,7 @@ function lastIndexOf(array, value, fromIndex) {
 
 module.exports = lastIndexOf;
 
-},{}],29:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -28398,7 +27067,7 @@ function pull(array) {
 
 module.exports = pull;
 
-},{}],30:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -28469,7 +27138,7 @@ function range(start, end, step) {
 
 module.exports = range;
 
-},{}],31:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -28542,7 +27211,7 @@ function remove(array, callback, thisArg) {
 
 module.exports = remove;
 
-},{"../functions/createCallback":79}],32:[function(require,module,exports){
+},{"../functions/createCallback":77}],30:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -28627,7 +27296,7 @@ function rest(array, callback, thisArg) {
 
 module.exports = rest;
 
-},{"../functions/createCallback":79,"../internals/slice":132}],33:[function(require,module,exports){
+},{"../functions/createCallback":77,"../internals/slice":130}],31:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -28706,7 +27375,7 @@ function sortedIndex(array, value, callback, thisArg) {
 
 module.exports = sortedIndex;
 
-},{"../functions/createCallback":79,"../utilities/identity":178}],34:[function(require,module,exports){
+},{"../functions/createCallback":77,"../utilities/identity":176}],32:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -28738,7 +27407,7 @@ function union() {
 
 module.exports = union;
 
-},{"../internals/baseFlatten":98,"../internals/baseUniq":103}],35:[function(require,module,exports){
+},{"../internals/baseFlatten":96,"../internals/baseUniq":101}],33:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -28809,7 +27478,7 @@ function uniq(array, isSorted, callback, thisArg) {
 
 module.exports = uniq;
 
-},{"../functions/createCallback":79,"../internals/baseUniq":103}],36:[function(require,module,exports){
+},{"../functions/createCallback":77,"../internals/baseUniq":101}],34:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -28842,7 +27511,7 @@ function without(array) {
 
 module.exports = without;
 
-},{"../internals/baseDifference":97,"../internals/slice":132}],37:[function(require,module,exports){
+},{"../internals/baseDifference":95,"../internals/slice":130}],35:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -28890,7 +27559,7 @@ function xor() {
 
 module.exports = xor;
 
-},{"../internals/baseDifference":97,"../internals/baseUniq":103,"../objects/isArguments":149,"../objects/isArray":150}],38:[function(require,module,exports){
+},{"../internals/baseDifference":95,"../internals/baseUniq":101,"../objects/isArguments":147,"../objects/isArray":148}],36:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -28932,7 +27601,7 @@ function zip() {
 
 module.exports = zip;
 
-},{"../collections/max":60,"../collections/pluck":62}],39:[function(require,module,exports){
+},{"../collections/max":58,"../collections/pluck":60}],37:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -28982,7 +27651,7 @@ function zipObject(keys, values) {
 
 module.exports = zipObject;
 
-},{"../objects/isArray":150}],40:[function(require,module,exports){
+},{"../objects/isArray":148}],38:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -29001,7 +27670,7 @@ module.exports = {
   'wrapperValueOf': require('./chaining/wrapperValueOf')
 };
 
-},{"./chaining/chain":41,"./chaining/tap":42,"./chaining/wrapperChain":43,"./chaining/wrapperToString":44,"./chaining/wrapperValueOf":45}],41:[function(require,module,exports){
+},{"./chaining/chain":39,"./chaining/tap":40,"./chaining/wrapperChain":41,"./chaining/wrapperToString":42,"./chaining/wrapperValueOf":43}],39:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -29044,7 +27713,7 @@ function chain(value) {
 
 module.exports = chain;
 
-},{"../internals/lodashWrapper":120}],42:[function(require,module,exports){
+},{"../internals/lodashWrapper":118}],40:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -29081,7 +27750,7 @@ function tap(value, interceptor) {
 
 module.exports = tap;
 
-},{}],43:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -29123,7 +27792,7 @@ function wrapperChain() {
 
 module.exports = wrapperChain;
 
-},{}],44:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -29151,7 +27820,7 @@ function wrapperToString() {
 
 module.exports = wrapperToString;
 
-},{}],45:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -29182,7 +27851,7 @@ function wrapperValueOf() {
 
 module.exports = wrapperValueOf;
 
-},{"../collections/forEach":54,"../support":174}],46:[function(require,module,exports){
+},{"../collections/forEach":52,"../support":172}],44:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -29233,7 +27902,7 @@ module.exports = {
   'where': require('./collections/where')
 };
 
-},{"./collections/at":47,"./collections/contains":48,"./collections/countBy":49,"./collections/every":50,"./collections/filter":51,"./collections/find":52,"./collections/findLast":53,"./collections/forEach":54,"./collections/forEachRight":55,"./collections/groupBy":56,"./collections/indexBy":57,"./collections/invoke":58,"./collections/map":59,"./collections/max":60,"./collections/min":61,"./collections/pluck":62,"./collections/reduce":63,"./collections/reduceRight":64,"./collections/reject":65,"./collections/sample":66,"./collections/shuffle":67,"./collections/size":68,"./collections/some":69,"./collections/sortBy":70,"./collections/toArray":71,"./collections/where":72}],47:[function(require,module,exports){
+},{"./collections/at":45,"./collections/contains":46,"./collections/countBy":47,"./collections/every":48,"./collections/filter":49,"./collections/find":50,"./collections/findLast":51,"./collections/forEach":52,"./collections/forEachRight":53,"./collections/groupBy":54,"./collections/indexBy":55,"./collections/invoke":56,"./collections/map":57,"./collections/max":58,"./collections/min":59,"./collections/pluck":60,"./collections/reduce":61,"./collections/reduceRight":62,"./collections/reject":63,"./collections/sample":64,"./collections/shuffle":65,"./collections/size":66,"./collections/some":67,"./collections/sortBy":68,"./collections/toArray":69,"./collections/where":70}],45:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -29281,7 +27950,7 @@ function at(collection) {
 
 module.exports = at;
 
-},{"../internals/baseFlatten":98,"../objects/isString":164}],48:[function(require,module,exports){
+},{"../internals/baseFlatten":96,"../objects/isString":162}],46:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -29348,7 +28017,7 @@ function contains(collection, target, fromIndex) {
 
 module.exports = contains;
 
-},{"../internals/baseIndexOf":99,"../objects/forOwn":144,"../objects/isArray":150,"../objects/isString":164}],49:[function(require,module,exports){
+},{"../internals/baseIndexOf":97,"../objects/forOwn":142,"../objects/isArray":148,"../objects/isString":162}],47:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -29405,7 +28074,7 @@ var countBy = createAggregator(function(result, value, key) {
 
 module.exports = countBy;
 
-},{"../internals/createAggregator":108}],50:[function(require,module,exports){
+},{"../internals/createAggregator":106}],48:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -29481,7 +28150,7 @@ function every(collection, callback, thisArg) {
 
 module.exports = every;
 
-},{"../functions/createCallback":79,"../objects/forOwn":144}],51:[function(require,module,exports){
+},{"../functions/createCallback":77,"../objects/forOwn":142}],49:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -29559,7 +28228,7 @@ function filter(collection, callback, thisArg) {
 
 module.exports = filter;
 
-},{"../functions/createCallback":79,"../objects/forOwn":144}],52:[function(require,module,exports){
+},{"../functions/createCallback":77,"../objects/forOwn":142}],50:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -29641,7 +28310,7 @@ function find(collection, callback, thisArg) {
 
 module.exports = find;
 
-},{"../functions/createCallback":79,"../objects/forOwn":144}],53:[function(require,module,exports){
+},{"../functions/createCallback":77,"../objects/forOwn":142}],51:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -29687,7 +28356,7 @@ function findLast(collection, callback, thisArg) {
 
 module.exports = findLast;
 
-},{"../functions/createCallback":79,"./forEachRight":55}],54:[function(require,module,exports){
+},{"../functions/createCallback":77,"./forEachRight":53}],52:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -29744,7 +28413,7 @@ function forEach(collection, callback, thisArg) {
 
 module.exports = forEach;
 
-},{"../internals/baseCreateCallback":95,"../objects/forOwn":144}],55:[function(require,module,exports){
+},{"../internals/baseCreateCallback":93,"../objects/forOwn":142}],53:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -29798,7 +28467,7 @@ function forEachRight(collection, callback, thisArg) {
 
 module.exports = forEachRight;
 
-},{"../internals/baseCreateCallback":95,"../objects/forOwn":144,"../objects/isArray":150,"../objects/isString":164,"../objects/keys":166}],56:[function(require,module,exports){
+},{"../internals/baseCreateCallback":93,"../objects/forOwn":142,"../objects/isArray":148,"../objects/isString":162,"../objects/keys":164}],54:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -29856,7 +28525,7 @@ var groupBy = createAggregator(function(result, value, key) {
 
 module.exports = groupBy;
 
-},{"../internals/createAggregator":108}],57:[function(require,module,exports){
+},{"../internals/createAggregator":106}],55:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -29912,7 +28581,7 @@ var indexBy = createAggregator(function(result, value, key) {
 
 module.exports = indexBy;
 
-},{"../internals/createAggregator":108}],58:[function(require,module,exports){
+},{"../internals/createAggregator":106}],56:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -29961,7 +28630,7 @@ function invoke(collection, methodName) {
 
 module.exports = invoke;
 
-},{"../internals/slice":132,"./forEach":54}],59:[function(require,module,exports){
+},{"../internals/slice":130,"./forEach":52}],57:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -30033,7 +28702,7 @@ function map(collection, callback, thisArg) {
 
 module.exports = map;
 
-},{"../functions/createCallback":79,"../objects/forOwn":144}],60:[function(require,module,exports){
+},{"../functions/createCallback":77,"../objects/forOwn":142}],58:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -30126,7 +28795,7 @@ function max(collection, callback, thisArg) {
 
 module.exports = max;
 
-},{"../functions/createCallback":79,"../internals/charAtCallback":106,"../objects/forOwn":144,"../objects/isArray":150,"../objects/isString":164,"./forEach":54}],61:[function(require,module,exports){
+},{"../functions/createCallback":77,"../internals/charAtCallback":104,"../objects/forOwn":142,"../objects/isArray":148,"../objects/isString":162,"./forEach":52}],59:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -30219,7 +28888,7 @@ function min(collection, callback, thisArg) {
 
 module.exports = min;
 
-},{"../functions/createCallback":79,"../internals/charAtCallback":106,"../objects/forOwn":144,"../objects/isArray":150,"../objects/isString":164,"./forEach":54}],62:[function(require,module,exports){
+},{"../functions/createCallback":77,"../internals/charAtCallback":104,"../objects/forOwn":142,"../objects/isArray":148,"../objects/isString":162,"./forEach":52}],60:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -30254,7 +28923,7 @@ var pluck = map;
 
 module.exports = pluck;
 
-},{"./map":59}],63:[function(require,module,exports){
+},{"./map":57}],61:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -30323,7 +28992,7 @@ function reduce(collection, callback, accumulator, thisArg) {
 
 module.exports = reduce;
 
-},{"../functions/createCallback":79,"../objects/forOwn":144}],64:[function(require,module,exports){
+},{"../functions/createCallback":77,"../objects/forOwn":142}],62:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -30367,7 +29036,7 @@ function reduceRight(collection, callback, accumulator, thisArg) {
 
 module.exports = reduceRight;
 
-},{"../functions/createCallback":79,"./forEachRight":55}],65:[function(require,module,exports){
+},{"../functions/createCallback":77,"./forEachRight":53}],63:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -30426,7 +29095,7 @@ function reject(collection, callback, thisArg) {
 
 module.exports = reject;
 
-},{"../functions/createCallback":79,"./filter":51}],66:[function(require,module,exports){
+},{"../functions/createCallback":77,"./filter":49}],64:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -30477,7 +29146,7 @@ function sample(collection, n, guard) {
 
 module.exports = sample;
 
-},{"../internals/baseRandom":102,"../objects/isString":164,"../objects/values":173,"./shuffle":67}],67:[function(require,module,exports){
+},{"../internals/baseRandom":100,"../objects/isString":162,"../objects/values":171,"./shuffle":65}],65:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -30518,7 +29187,7 @@ function shuffle(collection) {
 
 module.exports = shuffle;
 
-},{"../internals/baseRandom":102,"./forEach":54}],68:[function(require,module,exports){
+},{"../internals/baseRandom":100,"./forEach":52}],66:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -30556,7 +29225,7 @@ function size(collection) {
 
 module.exports = size;
 
-},{"../objects/keys":166}],69:[function(require,module,exports){
+},{"../objects/keys":164}],67:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -30634,7 +29303,7 @@ function some(collection, callback, thisArg) {
 
 module.exports = some;
 
-},{"../functions/createCallback":79,"../objects/forOwn":144,"../objects/isArray":150}],70:[function(require,module,exports){
+},{"../functions/createCallback":77,"../objects/forOwn":142,"../objects/isArray":148}],68:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -30737,7 +29406,7 @@ function sortBy(collection, callback, thisArg) {
 
 module.exports = sortBy;
 
-},{"../functions/createCallback":79,"../internals/compareAscending":107,"../internals/getArray":113,"../internals/getObject":114,"../internals/releaseArray":127,"../internals/releaseObject":128,"../objects/isArray":150,"./forEach":54,"./map":59}],71:[function(require,module,exports){
+},{"../functions/createCallback":77,"../internals/compareAscending":105,"../internals/getArray":111,"../internals/getObject":112,"../internals/releaseArray":125,"../internals/releaseObject":126,"../objects/isArray":148,"./forEach":52,"./map":57}],69:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -30772,7 +29441,7 @@ function toArray(collection) {
 
 module.exports = toArray;
 
-},{"../internals/slice":132,"../objects/isString":164,"../objects/values":173}],72:[function(require,module,exports){
+},{"../internals/slice":130,"../objects/isString":162,"../objects/values":171}],70:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -30812,7 +29481,7 @@ var where = filter;
 
 module.exports = where;
 
-},{"./filter":51}],73:[function(require,module,exports){
+},{"./filter":49}],71:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -30841,7 +29510,7 @@ module.exports = {
   'wrap': require('./functions/wrap')
 };
 
-},{"./functions/after":74,"./functions/bind":75,"./functions/bindAll":76,"./functions/bindKey":77,"./functions/compose":78,"./functions/createCallback":79,"./functions/curry":80,"./functions/debounce":81,"./functions/defer":82,"./functions/delay":83,"./functions/memoize":84,"./functions/once":85,"./functions/partial":86,"./functions/partialRight":87,"./functions/throttle":88,"./functions/wrap":89}],74:[function(require,module,exports){
+},{"./functions/after":72,"./functions/bind":73,"./functions/bindAll":74,"./functions/bindKey":75,"./functions/compose":76,"./functions/createCallback":77,"./functions/curry":78,"./functions/debounce":79,"./functions/defer":80,"./functions/delay":81,"./functions/memoize":82,"./functions/once":83,"./functions/partial":84,"./functions/partialRight":85,"./functions/throttle":86,"./functions/wrap":87}],72:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -30889,7 +29558,7 @@ function after(n, func) {
 
 module.exports = after;
 
-},{"../objects/isFunction":157}],75:[function(require,module,exports){
+},{"../objects/isFunction":155}],73:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -30931,7 +29600,7 @@ function bind(func, thisArg) {
 
 module.exports = bind;
 
-},{"../internals/createWrapper":110,"../internals/slice":132}],76:[function(require,module,exports){
+},{"../internals/createWrapper":108,"../internals/slice":130}],74:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -30982,7 +29651,7 @@ function bindAll(object) {
 
 module.exports = bindAll;
 
-},{"../internals/baseFlatten":98,"../internals/createWrapper":110,"../objects/functions":146}],77:[function(require,module,exports){
+},{"../internals/baseFlatten":96,"../internals/createWrapper":108,"../objects/functions":144}],75:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -31036,7 +29705,7 @@ function bindKey(object, key) {
 
 module.exports = bindKey;
 
-},{"../internals/createWrapper":110,"../internals/slice":132}],78:[function(require,module,exports){
+},{"../internals/createWrapper":108,"../internals/slice":130}],76:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -31099,7 +29768,7 @@ function compose() {
 
 module.exports = compose;
 
-},{"../objects/isFunction":157}],79:[function(require,module,exports){
+},{"../objects/isFunction":155}],77:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -31182,7 +29851,7 @@ function createCallback(func, thisArg, argCount) {
 
 module.exports = createCallback;
 
-},{"../internals/baseCreateCallback":95,"../internals/baseIsEqual":100,"../objects/isObject":161,"../objects/keys":166,"../utilities/property":184}],80:[function(require,module,exports){
+},{"../internals/baseCreateCallback":93,"../internals/baseIsEqual":98,"../objects/isObject":159,"../objects/keys":164,"../utilities/property":182}],78:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -31228,7 +29897,7 @@ function curry(func, arity) {
 
 module.exports = curry;
 
-},{"../internals/createWrapper":110}],81:[function(require,module,exports){
+},{"../internals/createWrapper":108}],79:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -31386,7 +30055,7 @@ function debounce(func, wait, options) {
 
 module.exports = debounce;
 
-},{"../objects/isFunction":157,"../objects/isObject":161,"../utilities/now":182}],82:[function(require,module,exports){
+},{"../objects/isFunction":155,"../objects/isObject":159,"../utilities/now":180}],80:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -31423,7 +30092,7 @@ function defer(func) {
 
 module.exports = defer;
 
-},{"../internals/slice":132,"../objects/isFunction":157}],83:[function(require,module,exports){
+},{"../internals/slice":130,"../objects/isFunction":155}],81:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -31461,7 +30130,7 @@ function delay(func, wait) {
 
 module.exports = delay;
 
-},{"../internals/slice":132,"../objects/isFunction":157}],84:[function(require,module,exports){
+},{"../internals/slice":130,"../objects/isFunction":155}],82:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -31534,7 +30203,7 @@ function memoize(func, resolver) {
 
 module.exports = memoize;
 
-},{"../internals/keyPrefix":118,"../objects/isFunction":157}],85:[function(require,module,exports){
+},{"../internals/keyPrefix":116,"../objects/isFunction":155}],83:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -31584,7 +30253,7 @@ function once(func) {
 
 module.exports = once;
 
-},{"../objects/isFunction":157}],86:[function(require,module,exports){
+},{"../objects/isFunction":155}],84:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -31620,7 +30289,7 @@ function partial(func) {
 
 module.exports = partial;
 
-},{"../internals/createWrapper":110,"../internals/slice":132}],87:[function(require,module,exports){
+},{"../internals/createWrapper":108,"../internals/slice":130}],85:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -31665,7 +30334,7 @@ function partialRight(func) {
 
 module.exports = partialRight;
 
-},{"../internals/createWrapper":110,"../internals/slice":132}],88:[function(require,module,exports){
+},{"../internals/createWrapper":108,"../internals/slice":130}],86:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -31738,7 +30407,7 @@ function throttle(func, wait, options) {
 
 module.exports = throttle;
 
-},{"../objects/isFunction":157,"../objects/isObject":161,"./debounce":81}],89:[function(require,module,exports){
+},{"../objects/isFunction":155,"../objects/isObject":159,"./debounce":79}],87:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -31776,7 +30445,7 @@ function wrap(value, wrapper) {
 
 module.exports = wrap;
 
-},{"../internals/createWrapper":110}],90:[function(require,module,exports){
+},{"../internals/createWrapper":108}],88:[function(require,module,exports){
 /**
  * @license
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
@@ -32132,7 +30801,7 @@ lodash.support = support;
 (lodash.templateSettings = utilities.templateSettings).imports._ = lodash;
 module.exports = lodash;
 
-},{"./arrays":17,"./chaining":40,"./collections":46,"./collections/forEach":54,"./functions":73,"./internals/lodashWrapper":120,"./objects":134,"./objects/forOwn":144,"./objects/isArray":150,"./support":174,"./utilities":175,"./utilities/mixin":179,"./utilities/templateSettings":188}],91:[function(require,module,exports){
+},{"./arrays":15,"./chaining":38,"./collections":44,"./collections/forEach":52,"./functions":71,"./internals/lodashWrapper":118,"./objects":132,"./objects/forOwn":142,"./objects/isArray":148,"./support":172,"./utilities":173,"./utilities/mixin":177,"./utilities/templateSettings":186}],89:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -32147,7 +30816,7 @@ var arrayPool = [];
 
 module.exports = arrayPool;
 
-},{}],92:[function(require,module,exports){
+},{}],90:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -32211,7 +30880,7 @@ function baseBind(bindData) {
 
 module.exports = baseBind;
 
-},{"../objects/isObject":161,"./baseCreate":94,"./setBindData":129,"./slice":132}],93:[function(require,module,exports){
+},{"../objects/isObject":159,"./baseCreate":92,"./setBindData":127,"./slice":130}],91:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -32365,7 +31034,7 @@ function baseClone(value, isDeep, callback, stackA, stackB) {
 
 module.exports = baseClone;
 
-},{"../collections/forEach":54,"../objects/assign":135,"../objects/forOwn":144,"../objects/isArray":150,"../objects/isObject":161,"./getArray":113,"./releaseArray":127,"./slice":132}],94:[function(require,module,exports){
+},{"../collections/forEach":52,"../objects/assign":133,"../objects/forOwn":142,"../objects/isArray":148,"../objects/isObject":159,"./getArray":111,"./releaseArray":125,"./slice":130}],92:[function(require,module,exports){
 (function (global){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
@@ -32411,7 +31080,7 @@ if (!nativeCreate) {
 module.exports = baseCreate;
 
 }).call(this,typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../objects/isObject":161,"../utilities/noop":181,"./isNative":117}],95:[function(require,module,exports){
+},{"../objects/isObject":159,"../utilities/noop":179,"./isNative":115}],93:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -32493,7 +31162,7 @@ function baseCreateCallback(func, thisArg, argCount) {
 
 module.exports = baseCreateCallback;
 
-},{"../functions/bind":75,"../support":174,"../utilities/identity":178,"./setBindData":129}],96:[function(require,module,exports){
+},{"../functions/bind":73,"../support":172,"../utilities/identity":176,"./setBindData":127}],94:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -32573,7 +31242,7 @@ function baseCreateWrapper(bindData) {
 
 module.exports = baseCreateWrapper;
 
-},{"../objects/isObject":161,"./baseCreate":94,"./setBindData":129,"./slice":132}],97:[function(require,module,exports){
+},{"../objects/isObject":159,"./baseCreate":92,"./setBindData":127,"./slice":130}],95:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -32627,7 +31296,7 @@ function baseDifference(array, values) {
 
 module.exports = baseDifference;
 
-},{"./baseIndexOf":99,"./cacheIndexOf":104,"./createCache":109,"./largeArraySize":119,"./releaseObject":128}],98:[function(require,module,exports){
+},{"./baseIndexOf":97,"./cacheIndexOf":102,"./createCache":107,"./largeArraySize":117,"./releaseObject":126}],96:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -32681,7 +31350,7 @@ function baseFlatten(array, isShallow, isStrict, fromIndex) {
 
 module.exports = baseFlatten;
 
-},{"../objects/isArguments":149,"../objects/isArray":150}],99:[function(require,module,exports){
+},{"../objects/isArguments":147,"../objects/isArray":148}],97:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -32715,7 +31384,7 @@ function baseIndexOf(array, value, fromIndex) {
 
 module.exports = baseIndexOf;
 
-},{}],100:[function(require,module,exports){
+},{}],98:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -32926,7 +31595,7 @@ function baseIsEqual(a, b, callback, isWhere, stackA, stackB) {
 
 module.exports = baseIsEqual;
 
-},{"../objects/forIn":142,"../objects/isFunction":157,"./getArray":113,"./objectTypes":123,"./releaseArray":127}],101:[function(require,module,exports){
+},{"../objects/forIn":140,"../objects/isFunction":155,"./getArray":111,"./objectTypes":121,"./releaseArray":125}],99:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33007,7 +31676,7 @@ function baseMerge(object, source, callback, stackA, stackB) {
 
 module.exports = baseMerge;
 
-},{"../collections/forEach":54,"../objects/forOwn":144,"../objects/isArray":150,"../objects/isPlainObject":162}],102:[function(require,module,exports){
+},{"../collections/forEach":52,"../objects/forOwn":142,"../objects/isArray":148,"../objects/isPlainObject":160}],100:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33038,7 +31707,7 @@ function baseRandom(min, max) {
 
 module.exports = baseRandom;
 
-},{}],103:[function(require,module,exports){
+},{}],101:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33104,7 +31773,7 @@ function baseUniq(array, isSorted, callback) {
 
 module.exports = baseUniq;
 
-},{"./baseIndexOf":99,"./cacheIndexOf":104,"./createCache":109,"./getArray":113,"./largeArraySize":119,"./releaseArray":127,"./releaseObject":128}],104:[function(require,module,exports){
+},{"./baseIndexOf":97,"./cacheIndexOf":102,"./createCache":107,"./getArray":111,"./largeArraySize":117,"./releaseArray":125,"./releaseObject":126}],102:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33145,7 +31814,7 @@ function cacheIndexOf(cache, value) {
 
 module.exports = cacheIndexOf;
 
-},{"./baseIndexOf":99,"./keyPrefix":118}],105:[function(require,module,exports){
+},{"./baseIndexOf":97,"./keyPrefix":116}],103:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33185,7 +31854,7 @@ function cachePush(value) {
 
 module.exports = cachePush;
 
-},{"./keyPrefix":118}],106:[function(require,module,exports){
+},{"./keyPrefix":116}],104:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33209,7 +31878,7 @@ function charAtCallback(value) {
 
 module.exports = charAtCallback;
 
-},{}],107:[function(require,module,exports){
+},{}],105:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33258,7 +31927,7 @@ function compareAscending(a, b) {
 
 module.exports = compareAscending;
 
-},{}],108:[function(require,module,exports){
+},{}],106:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33305,7 +31974,7 @@ function createAggregator(setter) {
 
 module.exports = createAggregator;
 
-},{"../functions/createCallback":79,"../objects/forOwn":144,"../objects/isArray":150}],109:[function(require,module,exports){
+},{"../functions/createCallback":77,"../objects/forOwn":142,"../objects/isArray":148}],107:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33352,7 +32021,7 @@ function createCache(array) {
 
 module.exports = createCache;
 
-},{"./cachePush":105,"./getObject":114,"./releaseObject":128}],110:[function(require,module,exports){
+},{"./cachePush":103,"./getObject":112,"./releaseObject":126}],108:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33460,7 +32129,7 @@ function createWrapper(func, bitmask, partialArgs, partialRightArgs, thisArg, ar
 
 module.exports = createWrapper;
 
-},{"../objects/isFunction":157,"./baseBind":92,"./baseCreateWrapper":96,"./slice":132}],111:[function(require,module,exports){
+},{"../objects/isFunction":155,"./baseBind":90,"./baseCreateWrapper":94,"./slice":130}],109:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33484,7 +32153,7 @@ function escapeHtmlChar(match) {
 
 module.exports = escapeHtmlChar;
 
-},{"./htmlEscapes":115}],112:[function(require,module,exports){
+},{"./htmlEscapes":113}],110:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33519,7 +32188,7 @@ function escapeStringChar(match) {
 
 module.exports = escapeStringChar;
 
-},{}],113:[function(require,module,exports){
+},{}],111:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33542,7 +32211,7 @@ function getArray() {
 
 module.exports = getArray;
 
-},{"./arrayPool":91}],114:[function(require,module,exports){
+},{"./arrayPool":89}],112:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33579,7 +32248,7 @@ function getObject() {
 
 module.exports = getObject;
 
-},{"./objectPool":122}],115:[function(require,module,exports){
+},{"./objectPool":120}],113:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33607,7 +32276,7 @@ var htmlEscapes = {
 
 module.exports = htmlEscapes;
 
-},{}],116:[function(require,module,exports){
+},{}],114:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33624,7 +32293,7 @@ var htmlUnescapes = invert(htmlEscapes);
 
 module.exports = htmlUnescapes;
 
-},{"../objects/invert":148,"./htmlEscapes":115}],117:[function(require,module,exports){
+},{"../objects/invert":146,"./htmlEscapes":113}],115:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33660,7 +32329,7 @@ function isNative(value) {
 
 module.exports = isNative;
 
-},{}],118:[function(require,module,exports){
+},{}],116:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33675,7 +32344,7 @@ var keyPrefix = +new Date + '';
 
 module.exports = keyPrefix;
 
-},{}],119:[function(require,module,exports){
+},{}],117:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33690,7 +32359,7 @@ var largeArraySize = 75;
 
 module.exports = largeArraySize;
 
-},{}],120:[function(require,module,exports){
+},{}],118:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33715,7 +32384,7 @@ function lodashWrapper(value, chainAll) {
 
 module.exports = lodashWrapper;
 
-},{}],121:[function(require,module,exports){
+},{}],119:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33730,7 +32399,7 @@ var maxPoolSize = 40;
 
 module.exports = maxPoolSize;
 
-},{}],122:[function(require,module,exports){
+},{}],120:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33745,7 +32414,7 @@ var objectPool = [];
 
 module.exports = objectPool;
 
-},{}],123:[function(require,module,exports){
+},{}],121:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33767,7 +32436,7 @@ var objectTypes = {
 
 module.exports = objectTypes;
 
-},{}],124:[function(require,module,exports){
+},{}],122:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33784,7 +32453,7 @@ var reEscapedHtml = RegExp('(' + keys(htmlUnescapes).join('|') + ')', 'g');
 
 module.exports = reEscapedHtml;
 
-},{"../objects/keys":166,"./htmlUnescapes":116}],125:[function(require,module,exports){
+},{"../objects/keys":164,"./htmlUnescapes":114}],123:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33799,7 +32468,7 @@ var reInterpolate = /<%=([\s\S]+?)%>/g;
 
 module.exports = reInterpolate;
 
-},{}],126:[function(require,module,exports){
+},{}],124:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33816,7 +32485,7 @@ var reUnescapedHtml = RegExp('[' + keys(htmlEscapes).join('') + ']', 'g');
 
 module.exports = reUnescapedHtml;
 
-},{"../objects/keys":166,"./htmlEscapes":115}],127:[function(require,module,exports){
+},{"../objects/keys":164,"./htmlEscapes":113}],125:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33843,7 +32512,7 @@ function releaseArray(array) {
 
 module.exports = releaseArray;
 
-},{"./arrayPool":91,"./maxPoolSize":121}],128:[function(require,module,exports){
+},{"./arrayPool":89,"./maxPoolSize":119}],126:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33874,7 +32543,7 @@ function releaseObject(object) {
 
 module.exports = releaseObject;
 
-},{"./maxPoolSize":121,"./objectPool":122}],129:[function(require,module,exports){
+},{"./maxPoolSize":119,"./objectPool":120}],127:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33919,7 +32588,7 @@ var setBindData = !defineProperty ? noop : function(func, value) {
 
 module.exports = setBindData;
 
-},{"../utilities/noop":181,"./isNative":117}],130:[function(require,module,exports){
+},{"../utilities/noop":179,"./isNative":115}],128:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -33973,7 +32642,7 @@ function shimIsPlainObject(value) {
 
 module.exports = shimIsPlainObject;
 
-},{"../objects/forIn":142,"../objects/isFunction":157}],131:[function(require,module,exports){
+},{"../objects/forIn":140,"../objects/isFunction":155}],129:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -34013,7 +32682,7 @@ var shimKeys = function(object) {
 
 module.exports = shimKeys;
 
-},{"./objectTypes":123}],132:[function(require,module,exports){
+},{"./objectTypes":121}],130:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -34053,7 +32722,7 @@ function slice(array, start, end) {
 
 module.exports = slice;
 
-},{}],133:[function(require,module,exports){
+},{}],131:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -34077,7 +32746,7 @@ function unescapeHtmlChar(match) {
 
 module.exports = unescapeHtmlChar;
 
-},{"./htmlUnescapes":116}],134:[function(require,module,exports){
+},{"./htmlUnescapes":114}],132:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -34131,7 +32800,7 @@ module.exports = {
   'values': require('./objects/values')
 };
 
-},{"./objects/assign":135,"./objects/clone":136,"./objects/cloneDeep":137,"./objects/create":138,"./objects/defaults":139,"./objects/findKey":140,"./objects/findLastKey":141,"./objects/forIn":142,"./objects/forInRight":143,"./objects/forOwn":144,"./objects/forOwnRight":145,"./objects/functions":146,"./objects/has":147,"./objects/invert":148,"./objects/isArguments":149,"./objects/isArray":150,"./objects/isBoolean":151,"./objects/isDate":152,"./objects/isElement":153,"./objects/isEmpty":154,"./objects/isEqual":155,"./objects/isFinite":156,"./objects/isFunction":157,"./objects/isNaN":158,"./objects/isNull":159,"./objects/isNumber":160,"./objects/isObject":161,"./objects/isPlainObject":162,"./objects/isRegExp":163,"./objects/isString":164,"./objects/isUndefined":165,"./objects/keys":166,"./objects/mapValues":167,"./objects/merge":168,"./objects/omit":169,"./objects/pairs":170,"./objects/pick":171,"./objects/transform":172,"./objects/values":173}],135:[function(require,module,exports){
+},{"./objects/assign":133,"./objects/clone":134,"./objects/cloneDeep":135,"./objects/create":136,"./objects/defaults":137,"./objects/findKey":138,"./objects/findLastKey":139,"./objects/forIn":140,"./objects/forInRight":141,"./objects/forOwn":142,"./objects/forOwnRight":143,"./objects/functions":144,"./objects/has":145,"./objects/invert":146,"./objects/isArguments":147,"./objects/isArray":148,"./objects/isBoolean":149,"./objects/isDate":150,"./objects/isElement":151,"./objects/isEmpty":152,"./objects/isEqual":153,"./objects/isFinite":154,"./objects/isFunction":155,"./objects/isNaN":156,"./objects/isNull":157,"./objects/isNumber":158,"./objects/isObject":159,"./objects/isPlainObject":160,"./objects/isRegExp":161,"./objects/isString":162,"./objects/isUndefined":163,"./objects/keys":164,"./objects/mapValues":165,"./objects/merge":166,"./objects/omit":167,"./objects/pairs":168,"./objects/pick":169,"./objects/transform":170,"./objects/values":171}],133:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -34203,7 +32872,7 @@ var assign = function(object, source, guard) {
 
 module.exports = assign;
 
-},{"../internals/baseCreateCallback":95,"../internals/objectTypes":123,"./keys":166}],136:[function(require,module,exports){
+},{"../internals/baseCreateCallback":93,"../internals/objectTypes":121,"./keys":164}],134:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -34268,7 +32937,7 @@ function clone(value, isDeep, callback, thisArg) {
 
 module.exports = clone;
 
-},{"../internals/baseClone":93,"../internals/baseCreateCallback":95}],137:[function(require,module,exports){
+},{"../internals/baseClone":91,"../internals/baseCreateCallback":93}],135:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -34327,7 +32996,7 @@ function cloneDeep(value, callback, thisArg) {
 
 module.exports = cloneDeep;
 
-},{"../internals/baseClone":93,"../internals/baseCreateCallback":95}],138:[function(require,module,exports){
+},{"../internals/baseClone":91,"../internals/baseCreateCallback":93}],136:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -34377,7 +33046,7 @@ function create(prototype, properties) {
 
 module.exports = create;
 
-},{"../internals/baseCreate":94,"./assign":135}],139:[function(require,module,exports){
+},{"../internals/baseCreate":92,"./assign":133}],137:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -34433,7 +33102,7 @@ var defaults = function(object, source, guard) {
 
 module.exports = defaults;
 
-},{"../internals/objectTypes":123,"./keys":166}],140:[function(require,module,exports){
+},{"../internals/objectTypes":121,"./keys":164}],138:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -34500,7 +33169,7 @@ function findKey(object, callback, thisArg) {
 
 module.exports = findKey;
 
-},{"../functions/createCallback":79,"./forOwn":144}],141:[function(require,module,exports){
+},{"../functions/createCallback":77,"./forOwn":142}],139:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -34567,7 +33236,7 @@ function findLastKey(object, callback, thisArg) {
 
 module.exports = findLastKey;
 
-},{"../functions/createCallback":79,"./forOwnRight":145}],142:[function(require,module,exports){
+},{"../functions/createCallback":77,"./forOwnRight":143}],140:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -34623,7 +33292,7 @@ var forIn = function(collection, callback, thisArg) {
 
 module.exports = forIn;
 
-},{"../internals/baseCreateCallback":95,"../internals/objectTypes":123}],143:[function(require,module,exports){
+},{"../internals/baseCreateCallback":93,"../internals/objectTypes":121}],141:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -34682,7 +33351,7 @@ function forInRight(object, callback, thisArg) {
 
 module.exports = forInRight;
 
-},{"../internals/baseCreateCallback":95,"./forIn":142}],144:[function(require,module,exports){
+},{"../internals/baseCreateCallback":93,"./forIn":140}],142:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -34734,7 +33403,7 @@ var forOwn = function(collection, callback, thisArg) {
 
 module.exports = forOwn;
 
-},{"../internals/baseCreateCallback":95,"../internals/objectTypes":123,"./keys":166}],145:[function(require,module,exports){
+},{"../internals/baseCreateCallback":93,"../internals/objectTypes":121,"./keys":164}],143:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -34780,7 +33449,7 @@ function forOwnRight(object, callback, thisArg) {
 
 module.exports = forOwnRight;
 
-},{"../internals/baseCreateCallback":95,"./keys":166}],146:[function(require,module,exports){
+},{"../internals/baseCreateCallback":93,"./keys":164}],144:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -34819,7 +33488,7 @@ function functions(object) {
 
 module.exports = functions;
 
-},{"./forIn":142,"./isFunction":157}],147:[function(require,module,exports){
+},{"./forIn":140,"./isFunction":155}],145:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -34856,7 +33525,7 @@ function has(object, key) {
 
 module.exports = has;
 
-},{}],148:[function(require,module,exports){
+},{}],146:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -34895,7 +33564,7 @@ function invert(object) {
 
 module.exports = invert;
 
-},{"./keys":166}],149:[function(require,module,exports){
+},{"./keys":164}],147:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -34937,7 +33606,7 @@ function isArguments(value) {
 
 module.exports = isArguments;
 
-},{}],150:[function(require,module,exports){
+},{}],148:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -34984,7 +33653,7 @@ var isArray = nativeIsArray || function(value) {
 
 module.exports = isArray;
 
-},{"../internals/isNative":117}],151:[function(require,module,exports){
+},{"../internals/isNative":115}],149:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -35023,7 +33692,7 @@ function isBoolean(value) {
 
 module.exports = isBoolean;
 
-},{}],152:[function(require,module,exports){
+},{}],150:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -35061,7 +33730,7 @@ function isDate(value) {
 
 module.exports = isDate;
 
-},{}],153:[function(require,module,exports){
+},{}],151:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -35090,7 +33759,7 @@ function isElement(value) {
 
 module.exports = isElement;
 
-},{}],154:[function(require,module,exports){
+},{}],152:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -35155,7 +33824,7 @@ function isEmpty(value) {
 
 module.exports = isEmpty;
 
-},{"./forOwn":144,"./isFunction":157}],155:[function(require,module,exports){
+},{"./forOwn":142,"./isFunction":155}],153:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -35211,7 +33880,7 @@ function isEqual(a, b, callback, thisArg) {
 
 module.exports = isEqual;
 
-},{"../internals/baseCreateCallback":95,"../internals/baseIsEqual":100}],156:[function(require,module,exports){
+},{"../internals/baseCreateCallback":93,"../internals/baseIsEqual":98}],154:[function(require,module,exports){
 (function (global){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
@@ -35261,7 +33930,7 @@ function isFinite(value) {
 module.exports = isFinite;
 
 }).call(this,typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],157:[function(require,module,exports){
+},{}],155:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -35290,7 +33959,7 @@ function isFunction(value) {
 
 module.exports = isFunction;
 
-},{}],158:[function(require,module,exports){
+},{}],156:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -35334,7 +34003,7 @@ function isNaN(value) {
 
 module.exports = isNaN;
 
-},{"./isNumber":160}],159:[function(require,module,exports){
+},{"./isNumber":158}],157:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -35366,7 +34035,7 @@ function isNull(value) {
 
 module.exports = isNull;
 
-},{}],160:[function(require,module,exports){
+},{}],158:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -35407,7 +34076,7 @@ function isNumber(value) {
 
 module.exports = isNumber;
 
-},{}],161:[function(require,module,exports){
+},{}],159:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -35448,7 +34117,7 @@ function isObject(value) {
 
 module.exports = isObject;
 
-},{"../internals/objectTypes":123}],162:[function(require,module,exports){
+},{"../internals/objectTypes":121}],160:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -35510,7 +34179,7 @@ var isPlainObject = !getPrototypeOf ? shimIsPlainObject : function(value) {
 
 module.exports = isPlainObject;
 
-},{"../internals/isNative":117,"../internals/shimIsPlainObject":130}],163:[function(require,module,exports){
+},{"../internals/isNative":115,"../internals/shimIsPlainObject":128}],161:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -35548,7 +34217,7 @@ function isRegExp(value) {
 
 module.exports = isRegExp;
 
-},{}],164:[function(require,module,exports){
+},{}],162:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -35587,7 +34256,7 @@ function isString(value) {
 
 module.exports = isString;
 
-},{}],165:[function(require,module,exports){
+},{}],163:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -35616,7 +34285,7 @@ function isUndefined(value) {
 
 module.exports = isUndefined;
 
-},{}],166:[function(require,module,exports){
+},{}],164:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -35654,7 +34323,7 @@ var keys = !nativeKeys ? shimKeys : function(object) {
 
 module.exports = keys;
 
-},{"../internals/isNative":117,"../internals/shimKeys":131,"./isObject":161}],167:[function(require,module,exports){
+},{"../internals/isNative":115,"../internals/shimKeys":129,"./isObject":159}],165:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -35714,7 +34383,7 @@ function mapValues(object, callback, thisArg) {
 
 module.exports = mapValues;
 
-},{"../functions/createCallback":79,"./forOwn":144}],168:[function(require,module,exports){
+},{"../functions/createCallback":77,"./forOwn":142}],166:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -35813,7 +34482,7 @@ function merge(object) {
 
 module.exports = merge;
 
-},{"../internals/baseCreateCallback":95,"../internals/baseMerge":101,"../internals/getArray":113,"../internals/releaseArray":127,"../internals/slice":132,"./isObject":161}],169:[function(require,module,exports){
+},{"../internals/baseCreateCallback":93,"../internals/baseMerge":99,"../internals/getArray":111,"../internals/releaseArray":125,"../internals/slice":130,"./isObject":159}],167:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -35882,7 +34551,7 @@ function omit(object, callback, thisArg) {
 
 module.exports = omit;
 
-},{"../functions/createCallback":79,"../internals/baseDifference":97,"../internals/baseFlatten":98,"./forIn":142}],170:[function(require,module,exports){
+},{"../functions/createCallback":77,"../internals/baseDifference":95,"../internals/baseFlatten":96,"./forIn":140}],168:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -35922,7 +34591,7 @@ function pairs(object) {
 
 module.exports = pairs;
 
-},{"./keys":166}],171:[function(require,module,exports){
+},{"./keys":164}],169:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -35989,7 +34658,7 @@ function pick(object, callback, thisArg) {
 
 module.exports = pick;
 
-},{"../functions/createCallback":79,"../internals/baseFlatten":98,"./forIn":142,"./isObject":161}],172:[function(require,module,exports){
+},{"../functions/createCallback":77,"../internals/baseFlatten":96,"./forIn":140,"./isObject":159}],170:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -36058,7 +34727,7 @@ function transform(object, callback, accumulator, thisArg) {
 
 module.exports = transform;
 
-},{"../collections/forEach":54,"../functions/createCallback":79,"../internals/baseCreate":94,"./forOwn":144,"./isArray":150}],173:[function(require,module,exports){
+},{"../collections/forEach":52,"../functions/createCallback":77,"../internals/baseCreate":92,"./forOwn":142,"./isArray":148}],171:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -36096,7 +34765,7 @@ function values(object) {
 
 module.exports = values;
 
-},{"./keys":166}],174:[function(require,module,exports){
+},{"./keys":164}],172:[function(require,module,exports){
 (function (global){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
@@ -36140,7 +34809,7 @@ support.funcNames = typeof Function.name == 'string';
 module.exports = support;
 
 }).call(this,typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./internals/isNative":117}],175:[function(require,module,exports){
+},{"./internals/isNative":115}],173:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -36170,7 +34839,7 @@ module.exports = {
   'uniqueId': require('./utilities/uniqueId')
 };
 
-},{"./functions/createCallback":79,"./utilities/constant":176,"./utilities/escape":177,"./utilities/identity":178,"./utilities/mixin":179,"./utilities/noConflict":180,"./utilities/noop":181,"./utilities/now":182,"./utilities/parseInt":183,"./utilities/property":184,"./utilities/random":185,"./utilities/result":186,"./utilities/template":187,"./utilities/templateSettings":188,"./utilities/times":189,"./utilities/unescape":190,"./utilities/uniqueId":191}],176:[function(require,module,exports){
+},{"./functions/createCallback":77,"./utilities/constant":174,"./utilities/escape":175,"./utilities/identity":176,"./utilities/mixin":177,"./utilities/noConflict":178,"./utilities/noop":179,"./utilities/now":180,"./utilities/parseInt":181,"./utilities/property":182,"./utilities/random":183,"./utilities/result":184,"./utilities/template":185,"./utilities/templateSettings":186,"./utilities/times":187,"./utilities/unescape":188,"./utilities/uniqueId":189}],174:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -36203,7 +34872,7 @@ function constant(value) {
 
 module.exports = constant;
 
-},{}],177:[function(require,module,exports){
+},{}],175:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -36236,7 +34905,7 @@ function escape(string) {
 
 module.exports = escape;
 
-},{"../internals/escapeHtmlChar":111,"../internals/reUnescapedHtml":126,"../objects/keys":166}],178:[function(require,module,exports){
+},{"../internals/escapeHtmlChar":109,"../internals/reUnescapedHtml":124,"../objects/keys":164}],176:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -36266,7 +34935,7 @@ function identity(value) {
 
 module.exports = identity;
 
-},{}],179:[function(require,module,exports){
+},{}],177:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -36356,7 +35025,7 @@ function mixin(object, source, options) {
 
 module.exports = mixin;
 
-},{"../collections/forEach":54,"../objects/functions":146,"../objects/isFunction":157,"../objects/isObject":161}],180:[function(require,module,exports){
+},{"../collections/forEach":52,"../objects/functions":144,"../objects/isFunction":155,"../objects/isObject":159}],178:[function(require,module,exports){
 (function (global){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
@@ -36390,7 +35059,7 @@ function noConflict() {
 module.exports = noConflict;
 
 }).call(this,typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],181:[function(require,module,exports){
+},{}],179:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -36418,7 +35087,7 @@ function noop() {
 
 module.exports = noop;
 
-},{}],182:[function(require,module,exports){
+},{}],180:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -36448,7 +35117,7 @@ var now = isNative(now = Date.now) && now || function() {
 
 module.exports = now;
 
-},{"../internals/isNative":117}],183:[function(require,module,exports){
+},{"../internals/isNative":115}],181:[function(require,module,exports){
 (function (global){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
@@ -36505,7 +35174,7 @@ var parseInt = nativeParseInt(whitespace + '08') == 8 ? nativeParseInt : functio
 module.exports = parseInt;
 
 }).call(this,typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../objects/isString":164}],184:[function(require,module,exports){
+},{"../objects/isString":162}],182:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -36547,7 +35216,7 @@ function property(key) {
 
 module.exports = property;
 
-},{}],185:[function(require,module,exports){
+},{}],183:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -36622,7 +35291,7 @@ function random(min, max, floating) {
 
 module.exports = random;
 
-},{"../internals/baseRandom":102}],186:[function(require,module,exports){
+},{"../internals/baseRandom":100}],184:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -36669,7 +35338,7 @@ function result(object, key) {
 
 module.exports = result;
 
-},{"../objects/isFunction":157}],187:[function(require,module,exports){
+},{"../objects/isFunction":155}],185:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -36887,7 +35556,7 @@ function template(text, data, options) {
 
 module.exports = template;
 
-},{"../internals/escapeStringChar":112,"../internals/reInterpolate":125,"../objects/defaults":139,"../objects/keys":166,"../objects/values":173,"./escape":177,"./templateSettings":188}],188:[function(require,module,exports){
+},{"../internals/escapeStringChar":110,"../internals/reInterpolate":123,"../objects/defaults":137,"../objects/keys":164,"../objects/values":171,"./escape":175,"./templateSettings":186}],186:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -36962,7 +35631,7 @@ var templateSettings = {
 
 module.exports = templateSettings;
 
-},{"../internals/reInterpolate":125,"./escape":177}],189:[function(require,module,exports){
+},{"../internals/reInterpolate":123,"./escape":175}],187:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -37010,7 +35679,7 @@ function times(n, callback, thisArg) {
 
 module.exports = times;
 
-},{"../internals/baseCreateCallback":95}],190:[function(require,module,exports){
+},{"../internals/baseCreateCallback":93}],188:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -37044,7 +35713,7 @@ function unescape(string) {
 
 module.exports = unescape;
 
-},{"../internals/reEscapedHtml":124,"../internals/unescapeHtmlChar":133,"../objects/keys":166}],191:[function(require,module,exports){
+},{"../internals/reEscapedHtml":122,"../internals/unescapeHtmlChar":131,"../objects/keys":164}],189:[function(require,module,exports){
 /**
  * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modularize modern exports="node" -o ./modern/`
@@ -37080,4 +35749,4 @@ function uniqueId(prefix) {
 
 module.exports = uniqueId;
 
-},{}]},{},[14])
+},{}]},{},[12])

@@ -1,8 +1,5 @@
 'use strict';
 
-require('angular-touch');
-require('angularjs-slider');
-
 var productsService = require('./products.service'),
     routes = require('./products.routes'),
     uiRouter = require('angular-ui-router'),
@@ -10,9 +7,7 @@ var productsService = require('./products.service'),
 
 module.exports = angular
   .module('pApp.filter.products', [
-    uiRouter,
-    'ngTouch',
-    'rzModule'
+    uiRouter
   ])
   .config(routes)
   .factory('productsService', productsService)

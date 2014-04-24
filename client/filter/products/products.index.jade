@@ -1,12 +1,13 @@
-  
-input(
-  type="range"
-  min="{{products.slider.min}}"
-  max="{{products.slider.max}}"
-  value="products.maxPrice"
-  ng-model="products.maxPrice")
 
-p {{products.maxPrice}}
+.range
+  input(
+    type="range"
+    min="{{products.slider.min}}"
+    max="{{products.slider.max}}"
+    value="products.maxPrice"
+    ng-model="products.maxPrice")
+
+  p {{products.maxPrice}}
 
 div(data-flex)
   div(

@@ -4,5 +4,19 @@
   padding-left: 0
   margin-bottom: 0
 
+  li 
+    margin-bottom: ($spacing/2)
+
 .facets--sub
-  padding-left: $spacing
+  padding-left: ($spacing/2)
+  margin-top: ($spacing/2);
+
+
+.label
+  @extends $tile-style
+  display: inline-block
+  padding: .25em .5em
+
+  &.is-active
+    transition: .25s background-color
+    background-color: tomato
