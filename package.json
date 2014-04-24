@@ -28,7 +28,8 @@
     "markdown": "~0.5.0",
     "vinyl-source-stream": "^0.1.1",
     "browserify-shim": "^3.3.2",
-    "debowerify": "^0.7.0"
+    "debowerify": "^0.7.0",
+    "browser-sync": "^0.8.0"
   },
   "browserify": {
     "transform": [

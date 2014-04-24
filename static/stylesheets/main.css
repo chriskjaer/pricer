@@ -581,6 +581,6 @@ hr {
   bottom: 0;
   left: 0;
   width: 100%;
-  background-color: rgba(255,255,255,0.95);
-  padding: 1.5rem/2;
+  background-color: #ff6347;
+  padding: 0.75rem;
 }
