@@ -2,21 +2,26 @@
 .facets
   list-style: none
   padding-left: 0
-  margin-bottom: 0
+  margin-bottom: ($spacing/2)
+  text-align: center
+  border-bottom: 1px dashed lighten($color-secondary, 80%)
 
   li 
+    display: inline-block
     margin-bottom: ($spacing/2)
-
-.facets--sub
-  padding-left: ($spacing/2)
-  margin-top: ($spacing/2);
-
+    margin-right: ($spacing/4)
+    margin-left: ($spacing/4)
 
 .label
   @extends $tile-style
+  position: relative
+  top: -1px
+  line-height: 1
   display: inline-block
-  padding: .25em .5em
+  padding: .8em
 
   &.is-active
-    transition: .25s background-color
-    background-color: tomato
+    transition: .25s box-shadow
+    box-shadow: $box-shadow-base,
+      0 2px 5px 0 rgba($color-primary, .75)
+      

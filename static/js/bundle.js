@@ -22620,15 +22620,17 @@ var styleDirective = valueFn({
 'use strict';
 
 
-function filterCtrl(filterService, $stateParams) {
+function filterCtrl(filterService) {
   var filter = this;
-
-  console.log($stateParams);
 
   filterService.getFilter()
     .then(function (response) {
       filter.categories = response.data;
     });
+
+  filter.setSubCategory = function (array) {
+    filter.subCategories = array;
+  };
 }
 
 module.exports = filterCtrl;
@@ -22644,7 +22646,7 @@ var buf = [];
 var jade_mixins = {};
 var jade_interp;
 
-buf.push("<div class=\"sidebar left\"><ul class=\"facets\"><li><a ui-sref=\"index.products\" ng-class=\"{'is-active': $state.current.name == 'index.products'}\" class=\"label\">Alle</a></li><li ng-repeat=\"category in filter.categories\"><a ui-sref=\"index.products.category({category: category._id})\" ng-class=\"{'is-active': category._id === $stateParams.category}\" class=\"label\">{{category._id}}</a><ul class=\"facets facets--sub\"><li ng-if=\"category._id === $stateParams.category\" ng-repeat=\"subCategory in category.subCategories\"><a ui-sref=\"index.products.category.subCategory({subCategory: subCategory})\" ng-class=\"{'is-active': subCategory === $stateParams.subCategory}\" class=\"label\">{{subCategory}}</a></li></ul></li></ul></div><ui-view class=\"content\"></ui-view><div class=\"dev align-center\">$state = {{$state.current.name}} | \n$stateParams = {{$stateParams}} | \n$state full url = {{ $state.$current.url.source }}</div>");;return buf.join("");
+buf.push("<div class=\"filter\"><ul class=\"facets\"><li><a ui-sref=\"index.products\" ng-class=\"{'is-active': $state.current.name == 'index.products'}\" ng-click=\"filter.setSubCategory()\" class=\"label\">Alle</a></li><li ng-repeat=\"category in filter.categories\"><a ui-sref=\"index.products.category({category: category._id})\" ng-class=\"{'is-active': category._id === $stateParams.category}\" ng-click=\"filter.setSubCategory(category.subCategories)\" class=\"label\">{{category._id}}</a></li></ul><ul ng-show=\"filter.subCategories\" class=\"facets facets--sub\"><li ng-repeat=\"subCategory in filter.subCategories\"><a ui-sref=\"index.products.category.subCategory({subCategory: subCategory})\" ng-class=\"{'is-active': subCategory === $stateParams.subCategory}\" class=\"label\">{{subCategory}}</a></li></ul></div><ui-view class=\"content\"></ui-view><div class=\"dev align-center\">$state = {{$state.current.name}} | \n$stateParams = {{$stateParams}} | \n$state full url = {{ $state.$current.url.source }}</div>");;return buf.join("");
 };
 },{"jade/runtime":14}],4:[function(require,module,exports){
 'use strict';
@@ -22763,7 +22765,7 @@ var buf = [];
 var jade_mixins = {};
 var jade_interp;
 
-buf.push("<div class=\"range\"><input type=\"range\" min=\"{{products.slider.min}}\" max=\"{{products.slider.max}}\" value=\"products.maxPrice\" ng-model=\"products.maxPrice\"/><p>{{products.maxPrice}}</p></div><div data-flex=\"data-flex\"><div data-flex-item=\"data-flex-item\" ng-repeat=\"product in products.data | filter: $stateParams | filter: products.filterByMaxPrice | limitTo: 10\"><div class=\"tile\"><div class=\"tile__image\"><img ng-src=\"{{product.img}}\"/></div><h2 class=\"delta flush\">{{product.name}}</h2><p class=\"flush small\">{{product.brand}}</p><p class=\"flush price\">{{product.price | currency: 'kr. '}}</p></div></div></div>");;return buf.join("");
+buf.push("<div ng-show=\"products.maxPrice\" class=\"range\"><div class=\"range__min\">{{products.slider.min | currency: 'kr. '}}</div><input type=\"range\" min=\"{{products.slider.min}}\" max=\"{{products.slider.max}}\" ng-model=\"products.maxPrice\" class=\"range__input\"/><div class=\"range__max\">{{products.slider.max | currency: 'kr. '}}</div><div class=\"range__current\">Max pris: {{products.maxPrice | currency: 'kr. '}}</div></div><div data-flex=\"data-flex\"><div data-flex-item=\"data-flex-item\" ng-repeat=\"product in products.data | filter: $stateParams | filter: products.filterByMaxPrice | limitTo: 10\"><div class=\"tile\"><div class=\"tile__image\"><img ng-src=\"{{product.img}}\"/></div><h2 class=\"delta flush\">{{product.name}}</h2><p class=\"flush small\">{{product.brand}}</p><p class=\"flush price\">{{product.price | currency: 'kr. '}}</p></div></div></div>");;return buf.join("");
 };
 },{"jade/runtime":14}],10:[function(require,module,exports){
 'use strict';

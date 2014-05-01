@@ -1,15 +1,17 @@
 'use strict';
 
 
-function filterCtrl(filterService, $stateParams) {
+function filterCtrl(filterService) {
   var filter = this;
-
-  console.log($stateParams);
 
   filterService.getFilter()
     .then(function (response) {
       filter.categories = response.data;
     });
+
+  filter.setSubCategory = function (array) {
+    filter.subCategories = array;
+  };
 }
 
 module.exports = filterCtrl;

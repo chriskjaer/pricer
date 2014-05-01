@@ -1,22 +1,25 @@
-.sidebar.left
+.filter
   ul.facets
     li
       a.label(ui-sref="index.products"
-              ng-class="{'is-active': $state.current.name == 'index.products'}") 
+              ng-class="{'is-active': $state.current.name == 'index.products'}"
+              ng-click="filter.setSubCategory()") 
         | Alle
 
     li(ng-repeat="category in filter.categories")
       a.label(ui-sref="index.products.category({category: category._id})"
-              ng-class="{'is-active': category._id === $stateParams.category}")
+              ng-class="{'is-active': category._id === $stateParams.category}"
+              ng-click="filter.setSubCategory(category.subCategories)")
         | {{category._id}}
-      ul.facets.facets--sub
-        li( ng-if="category._id === $stateParams.category"
-            ng-repeat="subCategory in category.subCategories")
-          a.label(ui-sref="index.products.category.subCategory({subCategory: subCategory})"
-                  ng-class="{'is-active': subCategory === $stateParams.subCategory}")
-            | {{subCategory}}
+
+  ul.facets.facets--sub(ng-show="filter.subCategories")
+    li(ng-repeat="subCategory in filter.subCategories")
+      a.label(ui-sref="index.products.category.subCategory({subCategory: subCategory})"
+              ng-class="{'is-active': subCategory === $stateParams.subCategory}")
+        | {{subCategory}}
 
 ui-view.content
+  
 div.dev.align-center
   | $state = {{$state.current.name}} | 
   | $stateParams = {{$stateParams}} | 

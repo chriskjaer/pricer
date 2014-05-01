@@ -1,0 +1,29 @@
+.range {
+  text-align: center;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.range__input {
+  display: inline-block;
+  width: 50%;
+}
+.range__min {
+  display: inline-block;
+}
+.range__max {
+  display: inline-block;
+}
+input[type='range'] {
+  -webkit-appearance: none;
+  background-color: #fff;
+  box-shadow: 0 1px 1px 0 rgba(0,0,0,0.2) inset;
+  border-radius: 3px;
+  height: $line-height-base;
+}
+::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  background-color: #666;
+  width: 10px;
+  height: 20px;
+}

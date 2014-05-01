@@ -1,13 +1,14 @@
 
-.range
-  input(
+.range(ng-show="products.maxPrice")
+  .range__min {{products.slider.min | currency: 'kr. '}}
+  input.range__input(
     type="range"
     min="{{products.slider.min}}"
     max="{{products.slider.max}}"
-    value="products.maxPrice"
     ng-model="products.maxPrice")
+  .range__max {{products.slider.max | currency: 'kr. '}}
 
-  p {{products.maxPrice}}
+  .range__current Max pris: {{products.maxPrice | currency: 'kr. '}}
 
 div(data-flex)
   div(

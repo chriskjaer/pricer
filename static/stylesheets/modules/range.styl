@@ -1,3 +1,56 @@
 
 .range
   text-align: center
+  max-width: 500px
+  margin-left: auto
+  margin-right: auto
+  margin-bottom: $spacing
+
+.range__input
+  display: inline-block
+  width: 50%
+  margin-left: $spacing
+  margin-right: $spacing
+
+.range__min,
+.range__max
+  display: inline-block
+  font-size: 80%
+  color: rgba($color-font-base, .8)
+
+.range__current
+  margin-top: 0
+
+// ::-moz-range-track,
+// ::-ms-track,
+input[type='range']
+  -webkit-appearance: none
+  background-color: lighten($color-secondary, 82.5%)
+  border-radius: 25em
+  height: 5px
+  top: -2px
+  position: relative
+
+  &:active,
+  &:focus
+    outline: none
+
+
+// ::-moz-range-thumb,
+// ::-ms-thumb,
+::-webkit-slider-thumb
+  -webkit-appearance: none
+  background-color: $color-secondary
+  border: .2em solid $color-secondary
+  border-radius: 100%
+  box-shadow: $box-shadow-base
+  width: 1.75em
+  height: 1.75em
+  cursor: -webkit-grab
+
+  &:before
+    content: ''
+    display: block
+    width: 10px
+    height: 10px
+    position: relative
